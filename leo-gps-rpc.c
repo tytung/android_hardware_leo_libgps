@@ -38,7 +38,7 @@
 
 #define  LOG_TAG  "gps_leo_rpc"
 
-#define  GPS_DEBUG  0
+#define  GPS_DEBUG  1
 
 #if GPS_DEBUG
 #  define  D(...)   LOGD(__VA_ARGS__)
@@ -89,6 +89,17 @@ struct SVCXPRT {
     XDR_SEND_UINT32(clnt, &val);\
 } while(0);
 
+#define SEND_UINT64(x) do { \
+    val64=x;\
+    xdr_u_hyper(clnt, &val64);\
+} while(0);
+
+#define SEND_BYTES(x, y) do { \
+    buf=x;\
+    len=y;\
+    XDR_SEND_BYTES(clnt, buf, len);\
+} while(0);
+
 static uint32_t client_IDs[16];//highest known value is 0xb
 static uint32_t can_send=1; //To prevent from sending get_position when EVENT_END hasn't been received
 static uint32_t has_fix=0;
@@ -105,6 +116,26 @@ struct params {
     int length;
 };
 
+typedef struct pdsm_xtra_time_info {
+    uint32_t uncertainty;
+    uint64_t time_utc;
+    bool_t ref_to_utc_time;
+    bool_t force_flag;
+} pdsm_xtra_time_info_type;
+
+struct xtra_time_params {
+    uint32_t *data;
+    pdsm_xtra_time_info_type *time_info_ptr;
+};
+
+struct xtra_data_params {
+    uint32_t *data;
+    unsigned char *xtra_data_ptr;
+    uint32_t part_len;
+    uint8_t part;
+    uint8_t total_parts;
+};
+
 static bool_t xdr_args(XDR *clnt, struct params *par) {
     int i;
     uint32_t val=0;
@@ -115,6 +146,52 @@ static bool_t xdr_args(XDR *clnt, struct params *par) {
 
 static bool_t xdr_result_int(XDR *clnt, uint32_t *result) {
     XDR_RECV_UINT32(clnt, result);
+    return 1;
+}
+
+static bool_t xtra_xdr_result_int(XDR *clnt, uint32_t *result) {
+    D("%s() is called", __FUNCTION__);
+    XDR_RECV_UINT32(clnt, result);
+    return 1;
+}
+
+static bool_t xtra_data_xdr_args(XDR *clnt, struct xtra_data_params *xtra_data) {
+    D("%s() is called: 0x%x, %d, %d, %d", __FUNCTION__, (int) xtra_data->xtra_data_ptr, xtra_data->part_len, xtra_data->part, xtra_data->total_parts);
+    uint32_t val=0;
+    unsigned char *buf;
+    uint32_t len=0;
+    SEND_VAL(xtra_data->data[0]);
+    SEND_VAL(xtra_data->data[1]);
+    SEND_VAL(xtra_data->data[2]);
+
+    //SEND_BYTES(xtra_data->xtra_data_ptr, xtra_data->part_len); // freeze the phone
+    // the following two lines also not work
+    SEND_VAL((uint32_t) xtra_data->xtra_data_ptr);
+    SEND_VAL(xtra_data->part_len);
+
+    SEND_VAL((uint32_t) xtra_data->part);
+    SEND_VAL((uint32_t) xtra_data->total_parts);
+    SEND_VAL(xtra_data->data[3]);
+    D("%s() is called: #", __FUNCTION__);
+    return 1;
+}
+
+static bool_t xtra_time_xdr_args(XDR *clnt, struct xtra_time_params *xtra_time) {
+    D("%s() is called: %d, %d", __FUNCTION__, (int) xtra_time->time_info_ptr->time_utc, (int) xtra_time->time_info_ptr->uncertainty);
+    uint32_t val=0;
+    uint64_t val64=0;
+    SEND_VAL(xtra_time->data[0]);
+    SEND_VAL(xtra_time->data[1]);
+    SEND_VAL(xtra_time->data[2]);
+
+    //SEND_VAL(xtra_time->time_info_ptr); // not works
+    // the following four lines also not work
+    SEND_VAL(xtra_time->time_info_ptr->uncertainty);
+    SEND_UINT64(xtra_time->time_info_ptr->time_utc);
+    SEND_VAL((uint32_t) xtra_time->time_info_ptr->ref_to_utc_time);
+    SEND_VAL((uint32_t) xtra_time->time_info_ptr->force_flag);
+
+    D("%s() is called: #", __FUNCTION__);
     return 1;
 }
 
@@ -288,6 +365,60 @@ int pdsm_client_act(struct CLIENT *clnt, int client) {
     }
     free(par.data);
     D("pdsm_client_act(%x)=%d\n", par.data[0], res);
+    return res;
+}
+
+int pdsm_xtra_set_data(struct CLIENT *clnt, int val0, int client_ID, int val2, unsigned char *xtra_data_ptr, uint32_t part_len, uint8_t part, uint8_t total_parts, int val3) {
+    struct xtra_data_params xtra_data;
+    uint32_t res = -1;
+    xtra_data.data=malloc(sizeof(int)*4);
+    xtra_data.data[0]=val0;
+    xtra_data.data[1]=client_ID;
+    xtra_data.data[2]=val2;
+    xtra_data.xtra_data_ptr = xtra_data_ptr;
+    xtra_data.part_len      = part_len;
+    xtra_data.part          = (uint32_t) part;
+    xtra_data.total_parts   = (uint32_t) total_parts;
+    xtra_data.data[3]=val3;
+    enum clnt_stat cs = -1;
+    cs = clnt_call(clnt, 0x1A,
+            (xdrproc_t) xtra_data_xdr_args,
+            (caddr_t) &xtra_data,
+            (xdrproc_t) xtra_xdr_result_int,
+            (caddr_t) &res, timeout);
+    D("%s() is called: clnt_stat=%d", __FUNCTION__, cs);
+    if (cs != RPC_SUCCESS){
+        D("pdsm_xtra_set_data(%x, %x, %d, 0x%x, %d, %d, %d, %d) failed\n", val0, client_ID, val2, (int) xtra_data_ptr, part_len, part, total_parts, val3);
+        free(xtra_data.data);
+        exit(-1);
+    }
+    D("pdsm_xtra_set_data(%x, %x, %d, 0x%x, %d, %d, %d, %d)=%d\n", val0, client_ID, val2, (int) xtra_data_ptr, part_len, part, total_parts, val3, res);
+    free(xtra_data.data);
+    return res;
+}
+
+int pdsm_xtra_inject_time_info(struct CLIENT *clnt, int val0, int client_ID, int val2, pdsm_xtra_time_info_type *time_info_ptr) {
+    struct xtra_time_params xtra_time;
+    uint32_t res = -1;
+    xtra_time.data=malloc(sizeof(int)*3);
+    xtra_time.data[0]=val0;
+    xtra_time.data[1]=client_ID;
+    xtra_time.data[2]=val2;
+    xtra_time.time_info_ptr = time_info_ptr;
+    enum clnt_stat cs = -1;
+    cs = clnt_call(clnt, 0x1E,
+            (xdrproc_t) xtra_time_xdr_args,
+            (caddr_t) &xtra_time,
+            (xdrproc_t) xtra_xdr_result_int,
+            (caddr_t) &res, timeout);
+    D("%s() is called: clnt_stat=%d", __FUNCTION__, cs);
+    if (cs != RPC_SUCCESS){
+        D("pdsm_xtra_inject_time_info(%x, %x, %d, %d, %d) failed\n", val0, client_ID, val2, (int) time_info_ptr->time_utc, (int) time_info_ptr->uncertainty);
+        free(xtra_time.data);
+        exit(-1);
+    }
+    D("pdsm_xtra_inject_time_info(%x, %x, %d, %d, %d)=%d\n", val0, client_ID, val2, (int) time_info_ptr->time_utc, (int) time_info_ptr->uncertainty, res);
+    free(xtra_time.data);
     return res;
 }
 
@@ -550,78 +681,6 @@ int pdsm_client_end_session(struct CLIENT *clnt, int id, int client) {
     return 0;
 }
 
-int init_gps6125() {
-    struct CLIENT *clnt=clnt_create(NULL, 0x3000005B, 0, NULL);
-    struct CLIENT *clnt_atl=clnt_create(NULL, 0x3000001D, 0, NULL);
-    int i;
-    _clnt=clnt;
-    SVCXPRT *svc=svcrtr_create();
-    xprt_register(svc);
-    svc_register(svc, 0x3100005b, 0xb93145f7, dispatch,0);
-    svc_register(svc, 0x3100005b, 0, dispatch,0);
-    svc_register(svc, 0x3100001d, 0/*xb93145f7*/, dispatch,0);
-    if(!clnt) {
-        D("Failed creating client\n");
-        return -1;
-    }
-    if(!svc) {
-        D("Failed creating server\n");
-        return -2;
-    }
-
-    pdsm_client_init(clnt, 2);
-    pdsm_client_pd_reg(clnt, 2, 0, 0, 0, 0xF3F0FFFF, 0);
-    pdsm_client_ext_status_reg(clnt, 2, 0, 0, 0, 0x4, 0);
-    pdsm_client_act(clnt, 2);
-    pdsm_client_pa_reg(clnt, 2, 0, 2, 0, 0x7ffefe0, 0);
-    pdsm_client_init(clnt, 0xb);
-    pdsm_client_xtra_reg(clnt, 0xb, 0, 3, 0, 7, 0);
-    pdsm_client_act(clnt, 0xb);
-    pdsm_atl_l2_proxy_reg(clnt_atl, 1,0,0);
-    pdsm_atl_dns_proxy_reg(clnt_atl, 1,0);
-    pdsm_client_init(clnt, 4);
-    pdsm_client_lcs_reg(clnt, 4, 0,0,0,0x3f0, 0);
-    pdsm_client_act(clnt, 4);
-
-    return 0;
-}
-
-int init_gps5225() {
-    struct CLIENT *clnt=clnt_create(NULL, 0x3000005B, 0, NULL);
-    struct CLIENT *clnt_atl=clnt_create(NULL, 0x3000001D, 0, NULL);
-    int i;
-    _clnt=clnt;
-    SVCXPRT *svc=svcrtr_create();
-    xprt_register(svc);
-    svc_register(svc, 0x3100005b, 0xb93145f7, dispatch,0);
-    svc_register(svc, 0x3100005b, 0, dispatch,0);
-    svc_register(svc, 0x3100001d, 0/*xb93145f7*/, dispatch,0);
-    if(!clnt) {
-        D("Failed creating client\n");
-        return -1;
-    }
-    if(!svc) {
-        D("Failed creating server\n");
-        return -2;
-    }
-
-    pdsm_client_init(clnt, 2);
-    pdsm_client_pd_reg(clnt, 2, 0, 0, 0, 0xF310FFFF, 0xffffffff);
-    pdsm_client_ext_status_reg(clnt, 2, 0, 1, 0, 4, 0xffffffff);
-    pdsm_client_act(clnt, 2);
-    pdsm_client_pa_reg(clnt, 2, 0, 2, 0, 0x003fefe0, 0xffffffff);
-    pdsm_client_init(clnt, 0xb);
-    pdsm_client_xtra_reg(clnt, 0xb, 0, 3, 0, 7, 0xffffffff);
-    pdsm_client_act(clnt, 0xb);
-    pdsm_atl_l2_proxy_reg(clnt_atl, 1, 4, 5);
-    pdsm_atl_dns_proxy_reg(clnt_atl, 1, 6);
-    pdsm_client_init(clnt, 0x4);
-    pdsm_client_lcs_reg(clnt, 0x4, 0, 7, 0, 0x30f, 8);
-    pdsm_client_act(clnt, 0x4);
-
-    return 0;
-}
-
 int init_leo() 
 {
     struct CLIENT *clnt=clnt_create(NULL, 0x3000005B, 0x00010001, NULL);
@@ -671,6 +730,31 @@ int init_gps_rpc()
     amss = A6125; 
     init_leo();
     return 0;
+}
+
+int gps_xtra_set_data(unsigned char *xtra_data_ptr, uint32_t part_len, uint8_t part, uint8_t total_parts) 
+{
+    uint32_t res = -1;
+    //FIXME: uncomment the line below when xtra_data_xdr_args() is corrected.
+    //res = pdsm_xtra_set_data(_clnt, 0, client_IDs[0xb], 0, xtra_data_ptr, part_len, part, total_parts, 0);
+    D("%s() is called: res=%d", __FUNCTION__, res);
+    return res;
+}
+
+int gps_xtra_inject_time_info(GpsUtcTime time, int64_t timeReference, int uncertainty)
+{
+    uint32_t res = -1;
+    pdsm_xtra_time_info_type time_info_ptr;
+    time_info_ptr.uncertainty = uncertainty;
+    time_info_ptr.time_utc = time;
+    //FIXME
+    //time_info_ptr.time_utc += (int64_t)(android::elapsedRealtime() - timeReference);
+    time_info_ptr.ref_to_utc_time = 1;
+    time_info_ptr.force_flag = 0;
+    //FIXME: uncomment the line below when xtra_time_xdr_args() is corrected.
+    //res = pdsm_xtra_inject_time_info(_clnt, 0, client_IDs[0xb], 0, &time_info_ptr);
+    D("%s() is called: res=%d", __FUNCTION__, res);
+    return res;
 }
 
 void gps_get_position() 

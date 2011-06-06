@@ -819,11 +819,65 @@ static int gps_xtra_init(GpsXtraCallbacks* callbacks) {
     return 0;
 }
 
+#define XTRA_BLOCK_SIZE               (400)
+#define RPC_LOC_API_SUCCESS           0
+#define RPC_LOC_API_GENERAL_FAILURE   1
+
 static int gps_xtra_inject_xtra_data(char* data, int length) {
     D("%s() is called", __FUNCTION__);
-    D("data ptr=0x%x, length=%d", (int) data, length);
-    /* not yet implemented */
-    return 0;
+    //D("data ptr=0x%x, length=%d", (int) data, length);
+    int     rpc_ret_val = RPC_LOC_API_GENERAL_FAILURE;
+    int ret_val = -1;
+    unsigned char *xtra_data_ptr;
+    uint32_t  part_len;
+    uint8_t   part;
+    uint8_t   total_parts;
+    uint16_t  len_injected;
+
+    D("gps_xtra_inject_xtra_data: xtra size = %d, data ptr = 0x%x\n", length, (int) data);
+
+    total_parts = (length / XTRA_BLOCK_SIZE);
+    if ((total_parts % XTRA_BLOCK_SIZE) != 0)
+    {
+        total_parts += 1;
+    }
+
+    len_injected = 0; // O bytes injected
+    // XTRA injection starts with part 1
+    for (part = 1; part <= total_parts; part++)
+    {
+        part_len = XTRA_BLOCK_SIZE;
+        if (XTRA_BLOCK_SIZE > (length - len_injected))
+        {
+            part_len = length - len_injected;
+        }
+        xtra_data_ptr = data + len_injected;
+
+        D("gps_xtra_inject_xtra_data: inject part = %d/%d, len = %d\n", part, total_parts, part_len);
+
+        if (part < total_parts)
+        {
+            // No callback in this case
+            rpc_ret_val = gps_xtra_set_data(xtra_data_ptr, part_len, part, total_parts);
+
+            if (rpc_ret_val != RPC_LOC_API_SUCCESS)
+            {
+                D("gps_xtra_set_data() for xtra returned %d \n", rpc_ret_val);
+                ret_val = EINVAL; // return error
+                break;
+            }
+        }
+        else // part == total_parts
+        {
+            // Last part injection, will need to wait for callback
+            ret_val = gps_xtra_set_data(xtra_data_ptr, part_len, part, total_parts);
+            break; // done with injection
+        }
+
+        len_injected += part_len;
+    }
+
+    return ret_val;
 }
 
 static const GpsXtraInterface  sGpsXtraInterface = {
@@ -933,9 +987,10 @@ static int gps_stop() {
 
 static int gps_inject_time(GpsUtcTime time, int64_t timeReference, int uncertainty) {
     D("%s() is called", __FUNCTION__);
-    D("time=%d, timeReference=%d, uncertainty=%d", time, timeReference, uncertainty);
-    /* not yet implemented */
-    return 0;
+    D("time=%d, timeReference=%d, uncertainty=%d", (int) time, (int) timeReference, uncertainty);
+    int ret_val = -1;
+    ret_val = gps_xtra_inject_time_info(time, timeReference, uncertainty);
+    return ret_val;
 }
 
 static int gps_inject_location(double latitude, double longitude, float accuracy) {
