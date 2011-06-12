@@ -38,7 +38,7 @@
 
 #define  LOG_TAG  "gps_leo_rpc"
 
-#define  GPS_DEBUG  1
+#define  GPS_DEBUG  0
 
 #if GPS_DEBUG
 #  define  D(...)   LOGD(__VA_ARGS__)
@@ -89,17 +89,6 @@ struct SVCXPRT {
     XDR_SEND_UINT32(clnt, &val);\
 } while(0);
 
-#define SEND_UINT64(x) do { \
-    val64=x;\
-    xdr_u_hyper(clnt, &val64);\
-} while(0);
-
-#define SEND_BYTES(x, y) do { \
-    buf=x;\
-    len=y;\
-    XDR_SEND_BYTES(clnt, buf, len);\
-} while(0);
-
 static uint32_t client_IDs[16];//highest known value is 0xb
 static uint32_t can_send=1; //To prevent from sending get_position when EVENT_END hasn't been received
 static uint32_t has_fix=0;
@@ -144,24 +133,26 @@ static bool_t xdr_result_int(XDR *clnt, uint32_t *result) {
     return 1;
 }
 
-static bool_t xdr_xtra_data_args(XDR *clnt, struct xtra_data_params *xtra_data) {
-    D("%s() is called: 0x%x, %d, %d, %d", __FUNCTION__, (int) xtra_data->xtra_data_ptr, xtra_data->part_len, xtra_data->part, xtra_data->total_parts);
-    uint32_t val=0;
-    unsigned char *buf;
-    uint32_t len=0;
-    SEND_VAL(xtra_data->data[0]);
-    SEND_VAL(xtra_data->data[1]);
-    SEND_VAL(xtra_data->data[2]);
+static bool_t xdr_xtra_data_args(XDR *xdrs, struct xtra_data_params *xtra_data) {
+    DD("%s() is called: 0x%x, %d, %d, %d", __FUNCTION__, (int) xtra_data->xtra_data_ptr, xtra_data->part_len, xtra_data->part, xtra_data->total_parts);
 
-    //SEND_BYTES(xtra_data->xtra_data_ptr, xtra_data->part_len); // freeze the phone
-    // the following two lines also not work
-    SEND_VAL((uint32_t) xtra_data->xtra_data_ptr);
-    SEND_VAL(xtra_data->part_len);
+    if (!xdr_u_long(xdrs, &xtra_data->data[0]))
+        return 0;
+    if (!xdr_int(xdrs, &xtra_data->data[1]))
+        return 0;
+    if (!xdr_u_long(xdrs, &xtra_data->data[2]))
+        return 0;
+    if (!xdr_u_long(xdrs, &xtra_data->part_len))
+        return 0;
+    if (!xdr_bytes(xdrs, (char **)&xtra_data->xtra_data_ptr, (u_int *)&xtra_data->part_len, ~0))
+        return 0;
+    if (!xdr_u_char(xdrs, &xtra_data->part))
+        return 0;
+    if (!xdr_u_char(xdrs, &xtra_data->total_parts))
+        return 0;
+    if (!xdr_u_long(xdrs, &xtra_data->data[3]))
+        return 0;
 
-    SEND_VAL((uint32_t) xtra_data->part);
-    SEND_VAL((uint32_t) xtra_data->total_parts);
-    SEND_VAL(xtra_data->data[3]);
-    D("%s() is called: #", __FUNCTION__);
     return 1;
 }
 
@@ -185,11 +176,11 @@ static bool_t xdr_xtra_time_args(XDR *xdrs, struct xtra_time_params *xtra_time) 
 
     if (!xdr_u_long(xdrs, &xtra_time->data[0]))
         return 0;
-    if (!xdr_u_long(xdrs, &xtra_time->data[1]))
+    if (!xdr_int(xdrs, &xtra_time->data[1]))
         return 0;
     if (!xdr_u_long(xdrs, &xtra_time->data[2]))
         return 0;
-    if (!xdr_pointer(xdrs, &xtra_time->time_info_ptr, sizeof(pdsm_xtra_time_info_type), (xdrproc_t) xdr_pdsm_xtra_time_info))
+    if (!xdr_pointer(xdrs, (char **)&xtra_time->time_info_ptr, sizeof(pdsm_xtra_time_info_type), (xdrproc_t) xdr_pdsm_xtra_time_info))
         return 0;
 
     return 1;
@@ -546,7 +537,7 @@ void dispatch_pdsm_pd(uint32_t *data) {
 
         if (ntohl(data[75])) {
             fix.flags |= GPS_LOCATION_HAS_ACCURACY;
-            fix.accuracy = (float)ntohl(data[75]) / 10.0f * 2; // Measurement Precision = 2
+            fix.accuracy = (float)ntohl(data[75]) / 10.0f * 2.5; // Measurement Precision = 2.5
         }
 
         union {
@@ -733,9 +724,7 @@ int init_gps_rpc()
 int gps_xtra_set_data(unsigned char *xtra_data_ptr, uint32_t part_len, uint8_t part, uint8_t total_parts) 
 {
     uint32_t res = -1;
-    //FIXME: uncomment the line below when xtra_data_xdr_args() is corrected.
-    //res = pdsm_xtra_set_data(_clnt, 0, client_IDs[0xb], 0, xtra_data_ptr, part_len, part, total_parts, 0);
-    D("%s() is called: res=%d", __FUNCTION__, res);
+    res = pdsm_xtra_set_data(_clnt, 0, client_IDs[0xb], 0, xtra_data_ptr, part_len, part, total_parts, 0);
     return res;
 }
 

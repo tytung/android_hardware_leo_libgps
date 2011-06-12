@@ -36,6 +36,8 @@
 #include <cutils/sockets.h>
 #include <gps.h>
 
+#define XTRA_BLOCK_SIZE  400
+
 #define  GPS_DEBUG  1
 
 #if GPS_DEBUG
@@ -819,14 +821,10 @@ static int gps_xtra_init(GpsXtraCallbacks* callbacks) {
     return 0;
 }
 
-#define XTRA_BLOCK_SIZE               (400)
-#define RPC_LOC_API_SUCCESS           0
-#define RPC_LOC_API_GENERAL_FAILURE   1
-
 static int gps_xtra_inject_xtra_data(char* data, int length) {
     D("%s() is called", __FUNCTION__);
     //D("data ptr=0x%x, length=%d", (int) data, length);
-    int     rpc_ret_val = RPC_LOC_API_GENERAL_FAILURE;
+    int rpc_ret_val = -1;
     int ret_val = -1;
     unsigned char *xtra_data_ptr;
     uint32_t  part_len;
@@ -857,10 +855,8 @@ static int gps_xtra_inject_xtra_data(char* data, int length) {
 
         if (part < total_parts)
         {
-            // No callback in this case
             rpc_ret_val = gps_xtra_set_data(xtra_data_ptr, part_len, part, total_parts);
-
-            if (rpc_ret_val != RPC_LOC_API_SUCCESS)
+            if (!rpc_ret_val)
             {
                 D("gps_xtra_set_data() for xtra returned %d \n", rpc_ret_val);
                 ret_val = EINVAL; // return error
@@ -869,7 +865,6 @@ static int gps_xtra_inject_xtra_data(char* data, int length) {
         }
         else // part == total_parts
         {
-            // Last part injection, will need to wait for callback
             ret_val = gps_xtra_set_data(xtra_data_ptr, part_len, part, total_parts);
             break; // done with injection
         }
