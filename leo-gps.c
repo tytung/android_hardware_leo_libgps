@@ -823,7 +823,11 @@ static int gps_xtra_init(GpsXtraCallbacks* callbacks) {
 
 static int gps_xtra_inject_xtra_data(char* data, int length) {
     D("%s() is called", __FUNCTION__);
-    //D("data ptr=0x%x, length=%d", (int) data, length);
+    D("gps_xtra_inject_xtra_data: xtra size = %d, data ptr = 0x%x\n", length, (int) data);
+    GpsState*  s = _gps_state;
+    if (!s->init)
+        return 0;
+
     int rpc_ret_val = -1;
     int ret_val = -1;
     unsigned char *xtra_data_ptr;
@@ -831,8 +835,6 @@ static int gps_xtra_inject_xtra_data(char* data, int length) {
     uint8_t   part;
     uint8_t   total_parts;
     uint16_t  len_injected;
-
-    D("gps_xtra_inject_xtra_data: xtra size = %d, data ptr = 0x%x\n", length, (int) data);
 
     total_parts = (length / XTRA_BLOCK_SIZE);
     if ((total_parts % XTRA_BLOCK_SIZE) != 0)
@@ -983,6 +985,10 @@ static int gps_stop() {
 static int gps_inject_time(GpsUtcTime time, int64_t timeReference, int uncertainty) {
     D("%s() is called", __FUNCTION__);
     D("time=%d, timeReference=%d, uncertainty=%d", (int) time, (int) timeReference, uncertainty);
+    GpsState*  s = _gps_state;
+    if (!s->init)
+        return 0;
+
     int ret_val = -1;
     ret_val = gps_xtra_inject_time_info(time, timeReference, uncertainty);
     return ret_val;
