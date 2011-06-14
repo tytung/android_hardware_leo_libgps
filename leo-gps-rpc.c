@@ -157,7 +157,7 @@ static bool_t xdr_xtra_data_args(XDR *xdrs, struct xtra_data_params *xtra_data) 
 }
 
 bool_t xdr_pdsm_xtra_time_info(XDR *xdrs, pdsm_xtra_time_info_type *time_info_ptr) {
-    DD("%s() is called: %lld, %d", __FUNCTION__, time_info_ptr->time_utc, time_info_ptr->uncertainty);
+    DD("%s() is called: %d, %d", __FUNCTION__, (int) time_info_ptr->time_utc, (int) time_info_ptr->uncertainty);
 
     if (!xdr_u_quad_t(xdrs, &time_info_ptr->time_utc))
         return 0;
@@ -377,7 +377,7 @@ int pdsm_xtra_set_data(struct CLIENT *clnt, int val0, int client_ID, int val2, u
             (caddr_t) &xtra_data,
             (xdrproc_t) xdr_result_int,
             (caddr_t) &res, timeout);
-    DD("%s() is called: clnt_stat=%d", __FUNCTION__, cs);
+    D("%s() is called: clnt_stat=%d", __FUNCTION__, cs);
     if (cs != RPC_SUCCESS){
         D("pdsm_xtra_set_data(%x, %x, %d, 0x%x, %d, %d, %d, %d) failed\n", val0, client_ID, val2, (int) xtra_data_ptr, part_len, part, total_parts, val3);
         free(xtra_data.data);
@@ -404,11 +404,11 @@ int pdsm_xtra_inject_time_info(struct CLIENT *clnt, int val0, int client_ID, int
             (caddr_t) &res, timeout);
     DD("%s() is called: clnt_stat=%d", __FUNCTION__, cs);
     if (cs != RPC_SUCCESS){
-        D("pdsm_xtra_inject_time_info(%x, %x, %d, %lld, %d) failed\n", val0, client_ID, val2, time_info_ptr->time_utc, time_info_ptr->uncertainty);
+        D("pdsm_xtra_inject_time_info(%x, %x, %d, %d, %d) failed\n", val0, client_ID, val2, (int) time_info_ptr->time_utc, (int) time_info_ptr->uncertainty);
         free(xtra_time.data);
         exit(-1);
     }
-    D("pdsm_xtra_inject_time_info(%x, %x, %d, %lld, %d)=%d\n", val0, client_ID, val2, time_info_ptr->time_utc, time_info_ptr->uncertainty, res);
+    D("pdsm_xtra_inject_time_info(%x, %x, %d, %d, %d)=%d\n", val0, client_ID, val2, (int) time_info_ptr->time_utc, (int) time_info_ptr->uncertainty, res);
     free(xtra_time.data);
     return res;
 }
@@ -728,17 +728,16 @@ int gps_xtra_set_data(unsigned char *xtra_data_ptr, uint32_t part_len, uint8_t p
     return res;
 }
 
-extern int64_t elapsed_realtime();
-
 int gps_xtra_inject_time_info(GpsUtcTime time, int64_t timeReference, int uncertainty)
 {
     uint32_t res = -1;
     pdsm_xtra_time_info_type time_info_ptr;
     time_info_ptr.uncertainty = uncertainty;
     time_info_ptr.time_utc = time;
-    time_info_ptr.time_utc += (int64_t)(elapsed_realtime() - timeReference);
+    //FIXME
+    //time_info_ptr.time_utc += (int64_t)(android::elapsedRealtime() - timeReference);
     time_info_ptr.ref_to_utc_time = 1;
-    time_info_ptr.force_flag = 1;
+    time_info_ptr.force_flag = 0;
     res = pdsm_xtra_inject_time_info(_clnt, 0, client_IDs[0xb], 0, &time_info_ptr);
     return res;
 }
