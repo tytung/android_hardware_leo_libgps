@@ -518,7 +518,7 @@ void dispatch_pdsm_pd(uint32_t *data) {
         for(i=0;i<ret.num_svs;++i) {
             ret.sv_list[i].prn=ntohl(data[83+3*i]);
             ret.sv_list[i].elevation=ntohl(data[83+3*i+1]);
-            ret.sv_list[i].azimuth=ntohl(data[83+3*i+2])/100;
+            ret.sv_list[i].azimuth=(float)ntohl(data[83+3*i+2])/100.0f;
             ret.sv_list[i].snr=ntohl(data[83+3*i+2])%100;
         }
         ret.used_in_fix_mask=ntohl(data[77]);
