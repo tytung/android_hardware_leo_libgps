@@ -1008,6 +1008,8 @@ static void gps_delete_aiding_data(GpsAidingData flags) {
 }
 
 static int gps_set_position_mode(GpsPositionMode mode, int fix_frequency) {
+    D("%s() is called", __FUNCTION__);
+    D("fix_frequency=%d", fix_frequency);
     _fix_frequency=fix_frequency;
     if(_fix_frequency==0) {
         //We don't handle single shot requests atm...
