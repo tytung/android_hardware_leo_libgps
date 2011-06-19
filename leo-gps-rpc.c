@@ -46,13 +46,7 @@
 #  define  D(...)   ((void)0)
 #endif
 
-#define  RPC_DEBUG  0
-
-#if RPC_DEBUG
-#  define  DD(...)   LOGD(__VA_ARGS__)
-#else
-#  define  DD(...)   ((void)0)
-#endif
+#define  DUMP_DATA  0
 
 typedef struct registered_server_struct {
     /* MUST BE AT OFFSET ZERO!  The client code assumes this when it overwrites
@@ -134,7 +128,7 @@ static bool_t xdr_result_int(XDR *clnt, uint32_t *result) {
 }
 
 static bool_t xdr_xtra_data_args(XDR *xdrs, struct xtra_data_params *xtra_data) {
-    //DD("%s() is called: 0x%x, %d, %d, %d", __FUNCTION__, (int) xtra_data->xtra_data_ptr, xtra_data->part_len, xtra_data->part, xtra_data->total_parts);
+    //D("%s() is called: 0x%x, %d, %d, %d", __FUNCTION__, (int) xtra_data->xtra_data_ptr, xtra_data->part_len, xtra_data->part, xtra_data->total_parts);
 
     if (!xdr_u_long(xdrs, &xtra_data->data[0]))
         return 0;
@@ -157,7 +151,7 @@ static bool_t xdr_xtra_data_args(XDR *xdrs, struct xtra_data_params *xtra_data) 
 }
 
 bool_t xdr_pdsm_xtra_time_info(XDR *xdrs, pdsm_xtra_time_info_type *time_info_ptr) {
-    //DD("%s() is called: %lld, %d", __FUNCTION__, time_info_ptr->time_utc, time_info_ptr->uncertainty);
+    //D("%s() is called: %lld, %d", __FUNCTION__, time_info_ptr->time_utc, time_info_ptr->uncertainty);
 
     if (!xdr_u_quad_t(xdrs, &time_info_ptr->time_utc))
         return 0;
@@ -172,7 +166,7 @@ bool_t xdr_pdsm_xtra_time_info(XDR *xdrs, pdsm_xtra_time_info_type *time_info_pt
 }
 
 static bool_t xdr_xtra_time_args(XDR *xdrs, struct xtra_time_params *xtra_time) {
-    //DD("%s() is called", __FUNCTION__);
+    //D("%s() is called", __FUNCTION__);
 
     if (!xdr_u_long(xdrs, &xtra_time->data[0]))
         return 0;
@@ -377,7 +371,7 @@ int pdsm_xtra_set_data(struct CLIENT *clnt, int val0, int client_ID, int val2, u
             (caddr_t) &xtra_data,
             (xdrproc_t) xdr_result_int,
             (caddr_t) &res, timeout);
-    DD("%s() is called: clnt_stat=%d", __FUNCTION__, cs);
+    //D("%s() is called: clnt_stat=%d", __FUNCTION__, cs);
     if (cs != RPC_SUCCESS){
         D("pdsm_xtra_set_data(%x, %x, %d, 0x%x, %d, %d, %d, %d) failed\n", val0, client_ID, val2, (int) xtra_data_ptr, part_len, part, total_parts, val3);
         free(xtra_data.data);
@@ -402,7 +396,7 @@ int pdsm_xtra_inject_time_info(struct CLIENT *clnt, int val0, int client_ID, int
             (caddr_t) &xtra_time,
             (xdrproc_t) xdr_result_int,
             (caddr_t) &res, timeout);
-    DD("%s() is called: clnt_stat=%d", __FUNCTION__, cs);
+    //D("%s() is called: clnt_stat=%d", __FUNCTION__, cs);
     if (cs != RPC_SUCCESS){
         D("pdsm_xtra_inject_time_info(%x, %x, %d, %lld, %d) failed\n", val0, client_ID, val2, time_info_ptr->time_utc, time_info_ptr->uncertainty);
         free(xtra_time.data);
@@ -505,16 +499,18 @@ void dispatch_pdsm_pd(uint32_t *data) {
         GpsSvStatus ret;
         int i;
         ret.num_svs=ntohl(data[82]) & 0x1F;
-/*
+
+#if DUMP_DATA
         // debugged by tytung
-        //DD("pd %3d: %08x ", 77, ntohl(data[77]));
+        //D("pd %3d: %08x ", 77, ntohl(data[77]));
         for(i=60;i<83;++i) {
-            DD("pd %3d: %08x ", i, ntohl(data[i]));
+            D("pd %3d: %08x ", i, ntohl(data[i]));
         }
         for(i=83;i<83+3*(ret.num_svs-1)+3;++i) {
-            DD("pd %3d: %d ", i, ntohl(data[i]));
+            D("pd %3d: %d ", i, ntohl(data[i]));
         }
-*/
+#endif
+
         for(i=0;i<ret.num_svs;++i) {
             ret.sv_list[i].prn=ntohl(data[83+3*i]);
             ret.sv_list[i].elevation=ntohl(data[83+3*i+1]);
@@ -591,15 +587,17 @@ void dispatch_pdsm_ext(uint32_t *data) {
     
     ret.num_svs=ntohl(data[8]);
     D("%s() is called. num_svs=%d", __FUNCTION__, ret.num_svs);
-/*
+
+#if DUMP_DATA
     // debugged by tytung
     for(i=0;i<12;++i) {
-        DD("e %3d: %08x ", i, ntohl(data[i]));
+        D("e %3d: %08x ", i, ntohl(data[i]));
     }
     for(i=101;i<101+12*(ret.num_svs-1)+6;++i) {
-        DD("e %3d: %d ", i, ntohl(data[i]));
+        D("e %3d: %d ", i, ntohl(data[i]));
     }
-*/
+#endif
+
     for(i=0;i<ret.num_svs;++i) {
         ret.sv_list[i].prn=ntohl(data[101+12*i+1]);
         ret.sv_list[i].elevation=ntohl(data[101+12*i+5]);
