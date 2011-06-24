@@ -38,6 +38,8 @@
 
 #define  LOG_TAG  "gps_leo_rpc"
 
+#define  MEASUREMENT_PRECISION  5.0f // in meters
+#define  DUMP_DATA  0
 #define  GPS_DEBUG  0
 
 #if GPS_DEBUG
@@ -45,8 +47,6 @@
 #else
 #  define  D(...)   ((void)0)
 #endif
-
-#define  DUMP_DATA  0
 
 typedef struct registered_server_struct {
     /* MUST BE AT OFFSET ZERO!  The client code assumes this when it overwrites
@@ -86,6 +86,7 @@ struct SVCXPRT {
 static uint32_t client_IDs[16];//highest known value is 0xb
 static uint32_t can_send=1; //To prevent from sending get_position when EVENT_END hasn't been received
 static uint32_t has_fix=0;
+static uint32_t use_nmea=1;
 static struct CLIENT *_clnt;
 static struct timeval timeout;
 
@@ -495,13 +496,13 @@ void dispatch_pdsm_pd(uint32_t *data) {
     fix.flags = 0;
     if(event&PDSM_PD_EVENT_POSITION) {
         D("PDSM_PD_EVENT_POSITION");
+        if (use_nmea) return;
 
         GpsSvStatus ret;
         int i;
         ret.num_svs=ntohl(data[82]) & 0x1F;
 
 #if DUMP_DATA
-        // debugged by tytung
         //D("pd %3d: %08x ", 77, ntohl(data[77]));
         for(i=60;i<83;++i) {
             D("pd %3d: %08x ", i, ntohl(data[i]));
@@ -533,7 +534,7 @@ void dispatch_pdsm_pd(uint32_t *data) {
 
         if (ntohl(data[75])) {
             fix.flags |= GPS_LOCATION_HAS_ACCURACY;
-            fix.accuracy = (float)ntohl(data[75]) / 10.0f * 2.5; // Measurement Precision = 2.5
+            fix.accuracy = (float)ntohl(data[75]) / 10.0f * MEASUREMENT_PRECISION;
         }
 
         union {
@@ -554,6 +555,7 @@ void dispatch_pdsm_pd(uint32_t *data) {
     if (event&PDSM_PD_EVENT_VELOCITY)
     {
         D("PDSM_PD_EVENT_VELOCITY");
+        if (use_nmea) return;
         fix.flags |= GPS_LOCATION_HAS_SPEED|GPS_LOCATION_HAS_BEARING;
         fix.speed = (float)ntohl(data[66]) / 10.0f / 3.6f; // convert kp/h to m/s
         fix.bearing = (float)ntohl(data[67]) / 10.0f;
@@ -561,6 +563,7 @@ void dispatch_pdsm_pd(uint32_t *data) {
     if (event&PDSM_PD_EVENT_HEIGHT)
     {
         D("PDSM_PD_EVENT_HEIGHT");
+        if (use_nmea) return;
         fix.flags |= GPS_LOCATION_HAS_ALTITUDE;
         fix.altitude = (double)ntohl(data[64]) / 10.0f;
     }
@@ -583,13 +586,13 @@ void dispatch_pdsm_ext(uint32_t *data) {
     GpsSvStatus ret;
     int i;
 
+    if (use_nmea) return;
     if (has_fix) return;
     
     ret.num_svs=ntohl(data[8]);
     D("%s() is called. num_svs=%d", __FUNCTION__, ret.num_svs);
 
 #if DUMP_DATA
-    // debugged by tytung
     for(i=0;i<12;++i) {
         D("e %3d: %08x ", i, ntohl(data[i]));
     }
@@ -681,8 +684,8 @@ int init_leo()
     xprt_register(svc);
     svc_register(svc, 0x3100005b, 0x00010001, (__dispatch_fn_t)dispatch, 0);
     svc_register(svc, 0x3100005b, 0, (__dispatch_fn_t)dispatch, 0);
-    svc_register(svc, 0x3100001d, 0x00010001 /*xb93145f7*/, (__dispatch_fn_t)dispatch, 0);
-    svc_register(svc, 0x3100001d, 0 /*xb93145f7*/, (__dispatch_fn_t)dispatch, 0);
+    svc_register(svc, 0x3100001d, 0x00010001, (__dispatch_fn_t)dispatch, 0);
+    svc_register(svc, 0x3100001d, 0, (__dispatch_fn_t)dispatch, 0);
     if(!clnt) {
         D("Failed creating client\n");
         return -1;
@@ -695,8 +698,8 @@ int init_leo()
     // PDA
     pdsm_client_init(clnt, 2);
     pdsm_client_pd_reg(clnt, 2, 0, 0, 0, 0xF3F0FFFF, 0);
-    pdsm_client_pa_reg(clnt, 2, 0, 2, 0, 0x7ffefe0, 0);
-    pdsm_client_ext_status_reg(clnt, 2, 0, 0, 0, 0x4, 0);
+    pdsm_client_pa_reg(clnt, 2, 0, 2, 0, 0x7FFEFE0, 0);
+    pdsm_client_ext_status_reg(clnt, 2, 0, 1, 0, 4, 0);
     pdsm_client_act(clnt, 2);
 
     // XTRA
@@ -708,7 +711,7 @@ int init_leo()
 
     // NI
     pdsm_client_init(clnt, 4);
-    pdsm_client_lcs_reg(clnt, 4, 0,0,0,0x3f0, 0);
+    pdsm_client_lcs_reg(clnt, 4, 0, 7, 0, 0x3F0, 0);
     pdsm_client_act(clnt, 4);
 
     return 0;
@@ -744,10 +747,10 @@ int gps_xtra_inject_time_info(GpsUtcTime time, int64_t timeReference, int uncert
 
 void gps_get_position() 
 {
-    D("%s() is called. can_send=%d", __FUNCTION__, can_send);
+    D("%s() is called", __FUNCTION__);
     int i;
     for(i = 3; i; --i) if(!can_send) sleep(1);//Time out of 3 seconds on can_send
-    can_send = 0;
+    D("%s() is called. can_send=%d", __FUNCTION__, can_send);
     pdsm_get_position(_clnt, 
             2, 0,           
             1,              
@@ -761,6 +764,7 @@ void gps_get_position()
        0, 0, 0, 0, 0,       
        1, 50, 2,
        client_IDs[2]);
+    can_send = 0;
 }
 
 void exit_gps_rpc() 
