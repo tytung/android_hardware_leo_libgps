@@ -284,7 +284,7 @@ nmea_reader_update_time( NmeaReader*  r, Token  tok )
     tm.tm_year  = r->utc_year - 1900;
     tm.tm_mon   = r->utc_mon - 1;
     tm.tm_mday  = r->utc_day;
-    tm.tm_isdst = -1;
+    tm.tm_isdst = 0;
 
     fix_time = mktime( &tm ) + r->utc_diff;
 
