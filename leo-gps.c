@@ -40,7 +40,7 @@
 #define  DISABLE_XTRA_DATA 1 // AGPS data injection not works yet
 #define  DISABLE_CLEANUP   1 // fully shutting down the GPS is temporarily disabled
 
-#define  MEASUREMENT_PRECISION  5.0f // in meters
+#define  MEASUREMENT_PRECISION  10.0f // in meters
 #define  DUMP_DATA  0
 #define  GPS_DEBUG  1
 
