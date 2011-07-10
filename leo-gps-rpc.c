@@ -38,8 +38,6 @@
 
 #define  LOG_TAG  "gps_leo_rpc"
 
-#define  ENABLE_NMEA 0
-
 #define  MEASUREMENT_PRECISION  10.0f // in meters
 #define  DUMP_DATA  0
 #define  GPS_DEBUG  0
@@ -88,11 +86,7 @@ struct SVCXPRT {
 static uint32_t client_IDs[16];//highest known value is 0xb
 static uint32_t can_send=1; //To prevent from sending get_position when EVENT_END hasn't been received
 static uint32_t has_fix=0;
-#if ENABLE_NMEA
 static uint32_t use_nmea=1;
-#else
-static uint32_t use_nmea=0;
-#endif
 static struct CLIENT *_clnt;
 static struct timeval timeout;
 

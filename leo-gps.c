@@ -38,7 +38,6 @@
 
 #define  XTRA_BLOCK_SIZE  400
 #define  DISABLE_CLEANUP   1 // fully shutting down the GPS is temporarily disabled
-#define  ENABLE_NMEA 0
 
 #define  MEASUREMENT_PRECISION  10.0f // in meters
 #define  DUMP_DATA  0
@@ -921,11 +920,7 @@ static void gps_state_init( GpsState*  state ) {
     state->init       = 1;
     state->control[0] = -1;
     state->control[1] = -1;
-#if ENABLE_NMEA
     state->fd         = open("/dev/smd27", O_RDONLY);
-#else
-    state->fd;
-#endif
 
     if ( socketpair( AF_LOCAL, SOCK_STREAM, 0, state->control ) < 0 ) {
         LOGE("could not create thread control socket pair: %s", strerror(errno));
