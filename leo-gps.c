@@ -37,7 +37,6 @@
 #define  LOG_TAG  "gps_leo"
 
 #define  XTRA_BLOCK_SIZE  400
-#define  DISABLE_XTRA_DATA 1 // AGPS data injection not works yet
 #define  DISABLE_CLEANUP   1 // fully shutting down the GPS is temporarily disabled
 
 #define  MEASUREMENT_PRECISION  10.0f // in meters
@@ -965,9 +964,6 @@ static int gps_xtra_init(GpsXtraCallbacks* callbacks) {
 static int gps_xtra_inject_xtra_data(char* data, int length) {
     D("%s() is called", __FUNCTION__);
     D("gps_xtra_inject_xtra_data: xtra size = %d, data ptr = 0x%x\n", length, (int) data);
-#if DISABLE_XTRA_DATA
-    return 0;
-#else
     GpsState*  s = _gps_state;
     if (!s->init)
         return 0;
@@ -1019,7 +1015,6 @@ static int gps_xtra_inject_xtra_data(char* data, int length) {
     }
 
     return ret_val;
-#endif
 }
 
 static const GpsXtraInterface  sGpsXtraInterface = {
