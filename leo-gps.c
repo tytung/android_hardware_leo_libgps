@@ -924,7 +924,7 @@ static void gps_state_init( GpsState*  state ) {
 #if ENABLE_NMEA
     state->fd         = open("/dev/smd27", O_RDONLY);
 #else
-    state->fd;
+    state->fd         = -1;
 #endif
 
     if ( socketpair( AF_LOCAL, SOCK_STREAM, 0, state->control ) < 0 ) {
