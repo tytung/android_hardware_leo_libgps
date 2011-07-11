@@ -484,7 +484,7 @@ nmea_reader_parse( NmeaReader*  r )
         // Satellites in View
         Token  tok_num_svs           = nmea_tokenizer_get(tzer, 3);
         int    num_svs = str2int(tok_num_svs.p, tok_num_svs.end);
-        report_nmea = 1;
+        //report_nmea = 1;
 
         if (num_svs > 0) {
             Token tok_total_sentences= nmea_tokenizer_get(tzer, 1);
