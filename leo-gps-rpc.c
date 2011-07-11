@@ -571,7 +571,12 @@ void dispatch_pdsm_pd(uint32_t *data) {
         D("PDSM_PD_EVENT_HEIGHT");
         if (use_nmea) return;
         fix.flags |= GPS_LOCATION_HAS_ALTITUDE;
-        fix.altitude = (double)ntohl(data[64]) / 10.0f;
+        fix.altitude = 0;
+        double altitude = (double)ntohl(data[64]);
+        if (altitude / 10.0f < 1000000) // Check if height is not unreasonably high
+            fix.altitude = altitude / 10.0f; // Apply height with a division of 10 to correct unit of meters
+        else // If unreasonably high then it is a negative height
+            fix.altitude = (altitude - (double)4294967295) / 10.0f; // Subtract FFFFFFFF to make height negative
     }
     if (fix.flags)
     {
