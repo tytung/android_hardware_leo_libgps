@@ -41,7 +41,7 @@
 #define  ENABLE_NMEA 1
 
 #define  MEASUREMENT_PRECISION  10.0f // in meters
-#define  DUMP_DATA  0
+#define  DUMP_DATA  1
 #define  GPS_DEBUG  1
 
 #if GPS_DEBUG
@@ -448,11 +448,11 @@ nmea_reader_parse( NmeaReader*  r )
     Token          tok;
     int            report_nmea = 0;
 
-#if DUMP_DATA & 0
+#if DUMP_DATA
     D("Received: %.*s", r->pos, r->in);
 #endif
     if (r->pos < 9) {
-#if DUMP_DATA & 0
+#if DUMP_DATA
         D("Too short. discarded.");
 #endif
         return;
@@ -607,7 +607,7 @@ nmea_reader_parse( NmeaReader*  r )
 
     } else {
         tok.p -= 2;
-#if DUMP_DATA & 0
+#if DUMP_DATA
         D("unknown sentence '%.*s", tok.end-tok.p, tok.p);
 #endif
     }
@@ -669,6 +669,9 @@ nmea_reader_parse( NmeaReader*  r )
 static void
 nmea_reader_addc( NmeaReader*  r, int  c )
 {
+#if DUMP_DATA
+    D("%s() is called", __FUNCTION__);
+#endif
     if (r->overflow) {
         r->overflow = (c != '\n');
         return;
@@ -894,7 +897,9 @@ static void* gps_state_thread( void*  arg ) {
                 } else if (fd == gps_fd) {
                     char  buf[512];
                     int   nn, ret;
-                    //D("gps fd event");
+#if DUMP_DATA
+                    D("gps fd event");
+#endif
                     do {
                         ret = read( fd, buf, sizeof(buf) );
                     } while (ret < 0 && errno == EINTR);
@@ -903,7 +908,9 @@ static void* gps_state_thread( void*  arg ) {
                         for (nn = 0; nn < ret; nn++)
                             nmea_reader_addc( reader, buf[nn] );
                     }
-                    //D("gps fd event end");
+#if DUMP_DATA
+                    D("gps fd event end");
+#endif
                 } else {
                     LOGE("epoll_wait() returned unkown fd %d ?", fd);
                 }
