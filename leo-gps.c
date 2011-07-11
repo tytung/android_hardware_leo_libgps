@@ -669,9 +669,6 @@ nmea_reader_parse( NmeaReader*  r )
 static void
 nmea_reader_addc( NmeaReader*  r, int  c )
 {
-#if DUMP_DATA
-    D("%s() is called", __FUNCTION__);
-#endif
     if (r->overflow) {
         r->overflow = (c != '\n');
         return;
@@ -905,8 +902,12 @@ static void* gps_state_thread( void*  arg ) {
                     } while (ret < 0 && errno == EINTR);
 
                     if (ret > 0) {
-                        for (nn = 0; nn < ret; nn++)
+                        for (nn = 0; nn < ret; nn++) {
                             nmea_reader_addc( reader, buf[nn] );
+#if DUMP_DATA
+                            D("%2d, nmea_reader_addc() is called", nn+1);
+#endif
+                        }
                     }
 #if DUMP_DATA
                     D("gps fd event end");
