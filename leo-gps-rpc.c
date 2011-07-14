@@ -275,7 +275,7 @@ int pdsm_client_pa_reg(struct CLIENT *clnt, int client, int val0, int val1, int 
         D("pdsm_client_pa_reg(%x, %d, %d, %d, %x, %d) failed\n", par.data[0], par.data[1], par.data[2], par.data[3], par.data[4], par.data[5]);
         free(par.data);
         exit(-1);
-    }leo-gps
+    }
     D("pdsm_client_pa_reg(%x, %d, %d, %d, %x, %d)=%d\n", par.data[0], par.data[1], par.data[2], par.data[3], par.data[4], par.data[5], res);
     free(par.data);
     return res;
