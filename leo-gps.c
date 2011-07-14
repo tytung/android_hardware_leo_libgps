@@ -1030,6 +1030,14 @@ static int gps_xtra_inject_xtra_data(char* data, int length) {
     return ret_val;
 }
 
+void xtra_download_request() {
+    D("%s() is called", __FUNCTION__);
+     GpsState*  state = _gps_state;
+     //Should be made thread safe...
+    if(state->xtra_callbacks.download_request_cb)
+        state->xtra_callbacks.download_request_cb();
+}
+
 static const GpsXtraInterface  sGpsXtraInterface = {
     gps_xtra_init,
     gps_xtra_inject_xtra_data,
