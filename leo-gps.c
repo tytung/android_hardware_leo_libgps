@@ -41,7 +41,7 @@
 #define  ENABLE_NMEA 1
 
 #define  MEASUREMENT_PRECISION  10.0f // in meters
-#define  DUMP_DATA  1
+#define  DUMP_DATA  0
 #define  GPS_DEBUG  1
 
 #if GPS_DEBUG
@@ -904,7 +904,7 @@ static void* gps_state_thread( void*  arg ) {
                     if (ret > 0) {
                         for (nn = 0; nn < ret; nn++) {
                             nmea_reader_addc( reader, buf[nn] );
-#if DUMP_DATA
+#if DUMP_DATA & 0
                             D("%2d, nmea_reader_addc() is called", nn+1);
 #endif
                         }

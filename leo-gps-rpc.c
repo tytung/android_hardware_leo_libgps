@@ -42,7 +42,7 @@
 
 #define  MEASUREMENT_PRECISION  10.0f // in meters
 #define  DUMP_DATA  0
-#define  GPS_DEBUG  1
+#define  GPS_DEBUG  0
 
 #if GPS_DEBUG
 #  define  D(...)   LOGD(__VA_ARGS__)
@@ -275,7 +275,7 @@ int pdsm_client_pa_reg(struct CLIENT *clnt, int client, int val0, int val1, int 
         D("pdsm_client_pa_reg(%x, %d, %d, %d, %x, %d) failed\n", par.data[0], par.data[1], par.data[2], par.data[3], par.data[4], par.data[5]);
         free(par.data);
         exit(-1);
-    }
+    }leo-gps
     D("pdsm_client_pa_reg(%x, %d, %d, %d, %x, %d)=%d\n", par.data[0], par.data[1], par.data[2], par.data[3], par.data[4], par.data[5], res);
     free(par.data);
     return res;
