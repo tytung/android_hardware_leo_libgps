@@ -861,7 +861,7 @@ int init_leo()
     pdsm_client_lcs_reg(clnt, 4, 0, 7, 0, 0x3F0, 0);
     pdsm_client_act(clnt, 4);
     
-    gps_xtra_set_auto_params();
+    //gps_xtra_set_auto_params();
 
     return 0;
 }
