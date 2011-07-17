@@ -821,6 +821,49 @@ int pdsm_client_end_session(struct CLIENT *clnt, int val0, int val1, int val2, i
     return 0;
 }
 
+static int CHECKED = 0;
+static int XTRA_AUTO_DOWNLOAD_ENABLED = 0;
+static int XTRA_DOWNLOAD_INTERVAL = 24;
+
+int parse_gps_conf() {
+    FILE *file = fopen("/system/etc/gps.conf", "r");
+    if (!file) { 
+        D("fopen error\n");
+        return 1; 
+    }
+    
+    char *check_enabled  = "GPS1_XTRA_AUTO_DOWNLOAD_ENABLED";
+    char *check_interval = "GPS1_XTRA_DOWNLOAD_INTERVAL";
+    char *result;
+    char str[256];
+    int i = -1;
+
+    while (fscanf(file, "%s", str) != EOF) {
+        //printf("%s (%d)\n", str, strlen(str));
+        if (!CHECKED) {
+            result = strstr(str, check_enabled);
+            if (result != NULL) {
+                result = result+strlen(check_enabled)+1;
+                i = atoi(result);
+                if (i==0 || i==1)
+                    XTRA_AUTO_DOWNLOAD_ENABLED = i;
+                CHECKED = 1;
+            }
+        }
+        if (XTRA_AUTO_DOWNLOAD_ENABLED) {
+            result = strstr(str, check_interval);
+            if (result != NULL) {
+                result = result+strlen(check_interval)+1;
+                i = atoi(result);
+                if (i>0 && i<169)
+                    XTRA_DOWNLOAD_INTERVAL = i;
+            }
+        }
+    }
+    fclose(file);
+    return 0;
+}
+
 int init_leo() 
 {
     struct CLIENT *clnt=clnt_create(NULL, 0x3000005B, 0x00010001, NULL);
@@ -861,7 +904,9 @@ int init_leo()
     pdsm_client_lcs_reg(clnt, 4, 0, 7, 0, 0x3F0, 0);
     pdsm_client_act(clnt, 4);
     
-    //gps_xtra_set_auto_params();
+    parse_gps_conf();
+    if (XTRA_AUTO_DOWNLOAD_ENABLED)
+        gps_xtra_set_auto_params();
 
     return 0;
 }
@@ -891,8 +936,8 @@ int gps_xtra_set_auto_params()
 {
     //Set xtra auto download parameters
     uint32_t res = -1;
-    uint8_t boolean = 1; //Enable/Disable
-    uint16_t interval = 24; //Interval in hours 1 to 168(Week)
+    uint8_t boolean = XTRA_AUTO_DOWNLOAD_ENABLED; //Enable/Disable
+    uint16_t interval = XTRA_DOWNLOAD_INTERVAL; //Interval in hours 1 to 168(Week)
     res = pdsm_xtra_set_auto_download_params(_clnt, 0, client_IDs[0xb], 0, boolean, interval);
     return res;
 }
