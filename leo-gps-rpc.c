@@ -656,7 +656,8 @@ void dispatch_pdsm_pd(uint32_t *data) {
 
         if (ntohl(data[75])) {
             fix.flags |= GPS_LOCATION_HAS_ACCURACY;
-            fix.accuracy = (float)ntohl(data[75]) / 10.0f * MEASUREMENT_PRECISION;
+            float hdop = (float)ntohl(data[75]) / 10.0f / 2.0f;
+            fix.accuracy = hdop * MEASUREMENT_PRECISION;
         }
 
         union {
