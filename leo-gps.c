@@ -50,6 +50,17 @@
 #  define  D(...)   ((void)0)
 #endif
 
+static void *gps_get_position_thread( void*  arg );
+
+static pthread_mutex_t get_position_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t get_position_cond = PTHREAD_COND_INITIALIZER;
+
+static pthread_mutex_t get_pos_ready_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t get_pos_ready_cond = PTHREAD_COND_INITIALIZER;
+
+static int started = 0;
+static int active = 0;
+
 void update_gps_location(GpsLocation *location);
 void update_gps_status(GpsStatusValue value);
 void update_gps_svstatus(GpsSvStatus *svstatus);
@@ -215,6 +226,7 @@ typedef struct {
     AGpsCallbacks           agps_callbacks;
     GpsStatus               status;
     pthread_t               thread;
+    pthread_t               pos_thread;
     int                     control[2];
 } GpsState;
 
@@ -717,6 +729,7 @@ static void gps_state_done( GpsState*  s ) {
     while (ret < 0 && errno == EINTR);
 
     pthread_join(s->thread, &dummy);
+    pthread_join(s->pos_thread, &dummy);
 
     // close the control socket pair
     close( s->control[0] ); s->control[0] = -1;
@@ -828,7 +841,6 @@ static void* gps_state_thread( void*  arg ) {
     GpsState*   state = (GpsState*) arg;
     NmeaReader  reader[1];
     int         epoll_fd   = epoll_create(2);
-    int         started    = 0;
     int         gps_fd     = state->fd;
     int         control_fd = state->control[1];
 
@@ -847,19 +859,13 @@ static void* gps_state_thread( void*  arg ) {
         struct epoll_event   events[2];
         int                  ne, nevents;
 
-        nevents = epoll_wait( epoll_fd, events, gps_fd>-1 ? 2 : 1, started ? _fix_frequency*900 : -1);
+        nevents = epoll_wait( epoll_fd, events, gps_fd>-1 ? 2 : 1, -1);
         if (nevents < 0) {
             if (errno != EINTR)
                 LOGE("epoll_wait() unexpected error: %s", strerror(errno));
             continue;
         }
         //D("gps thread received %d events", nevents);
-        if(nevents==0) {
-            //We should call pdsm_get_position more often than that... but it's not easy to code.
-            //Anyway the 2second timeout is already stupid,
-            if(started)
-                gps_get_position();
-        }
         for (ne = 0; ne < nevents; ne++) {
             if ((events[ne].events & (EPOLLERR|EPOLLHUP)) != 0) {
                 LOGE("EPOLLERR or EPOLLHUP after epoll_wait() !?");
@@ -878,16 +884,21 @@ static void* gps_state_thread( void*  arg ) {
     
                     if (cmd == CMD_QUIT) {
                         D("gps thread quitting on demand");
+                        active = 0;
+                        pthread_cond_signal(&get_pos_ready_cond);
+                        pthread_cond_signal(&get_position_cond);
                         goto Exit;
                     } else if (cmd == CMD_START) {
                         if (!started) {
                             D("gps thread starting  location_cb=%p", state->callbacks.location_cb);
                             started = 1;
+                            pthread_cond_signal(&get_position_cond);
                        }
                     } else if (cmd == CMD_STOP) {
                         if (started) {
                             D("gps thread stopping");
                             started = 0;
+                            pthread_cond_signal(&get_pos_ready_cond);
                             exit_gps_rpc();
                         }
                     }
@@ -922,6 +933,29 @@ Exit:
     return NULL;
 }
 
+void pdsm_pd_callback() {
+    pthread_cond_signal(&get_pos_ready_cond);
+}
+
+static void* gps_get_position_thread( void*  arg ) {
+    D("%s() running", __FUNCTION__);
+    while(active)
+    {
+        while(started)
+        {
+            gps_get_position();
+            pthread_mutex_lock(&get_pos_ready_mutex);
+            pthread_cond_wait(&get_pos_ready_cond, &get_pos_ready_mutex);
+            pthread_mutex_unlock(&get_pos_ready_mutex);
+        }
+        pthread_mutex_lock(&get_position_mutex);
+        pthread_cond_wait(&get_position_cond, &get_position_mutex);
+        pthread_mutex_unlock(&get_position_mutex);
+    }
+    D("%s() destroyed", __FUNCTION__);
+    return NULL;
+}
+
 static void gps_state_init( GpsState*  state ) {
 
     update_gps_status(GPS_STATUS_ENGINE_ON);
@@ -935,6 +969,8 @@ static void gps_state_init( GpsState*  state ) {
     state->fd         = -1;
 #endif
 
+    active = 1;
+
     if ( socketpair( AF_LOCAL, SOCK_STREAM, 0, state->control ) < 0 ) {
         LOGE("could not create thread control socket pair: %s", strerror(errno));
         goto Fail;
@@ -942,6 +978,11 @@ static void gps_state_init( GpsState*  state ) {
 
     if ( pthread_create( &state->thread, NULL, gps_state_thread, state ) != 0 ) {
         LOGE("could not create gps thread: %s", strerror(errno));
+        goto Fail;
+    }
+
+    if ( pthread_create( &state->pos_thread, NULL, gps_get_position_thread, NULL ) != 0 ) {
+        LOGE("could not create gps_get_position_thread: %s", strerror(errno));
         goto Fail;
     }
 

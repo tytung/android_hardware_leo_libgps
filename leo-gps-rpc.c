@@ -86,7 +86,6 @@ struct SVCXPRT {
 } while(0);
 
 static uint32_t client_IDs[16];//highest known value is 0xb
-static uint32_t can_send=1; //To prevent from sending get_position when EVENT_END hasn't been received
 static uint32_t has_fix=0;
 #if ENABLE_NMEA
 static uint32_t use_nmea=1;
@@ -706,7 +705,7 @@ void dispatch_pdsm_pd(uint32_t *data) {
     if(event&PDSM_PD_EVENT_DONE)
     {
         D("PDSM_PD_EVENT_DONE");
-        can_send=1;
+        pdsm_pd_callback();
     }
 }
 
@@ -961,9 +960,6 @@ int gps_xtra_inject_time_info(GpsUtcTime time, int64_t timeReference, int uncert
 void gps_get_position() 
 {
     D("%s() is called", __FUNCTION__);
-    int i;
-    for(i = 3; i; --i) if(!can_send) sleep(1);//Time out of 3 seconds on can_send
-    D("%s() is called. can_send=%d", __FUNCTION__, can_send);
     pdsm_get_position(_clnt, 
             2, 0,           
             1,              
@@ -977,7 +973,6 @@ void gps_get_position()
        0, 0, 0, 0, 0,       
        1, 50, 2,
        client_IDs[2]);
-    can_send = 0;
 }
 
 void exit_gps_rpc() 
