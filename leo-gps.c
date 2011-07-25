@@ -24,6 +24,7 @@
  ******************************************************************************/
 
 #include <errno.h>
+#include <semaphore.h>
 #include <pthread.h>
 #include <fcntl.h>
 #include <sys/epoll.h>
@@ -48,6 +49,22 @@
 #  define  D(...)   LOGD(__VA_ARGS__)
 #else
 #  define  D(...)   ((void)0)
+#endif
+
+#if ENABLE_NMEA
+/* Since NMEA parser requires lcoks */
+#define GPS_STATE_LOCK_FIX(_s)           \
+{                                        \
+    int ret;                             \
+    do {                                 \
+        ret = sem_wait(&(_s)->fix_sem);  \
+    } while (ret < 0 && errno == EINTR); \
+}
+
+#define GPS_STATE_UNLOCK_FIX(_s)         \
+    sem_post(&(_s)->fix_sem)
+
+static void *gps_timer_thread( void*  arg );
 #endif
 
 static void *gps_get_position_thread( void*  arg );
@@ -218,6 +235,12 @@ typedef struct {
     char     in[ NMEA_MAX_SIZE+1 ];
 } NmeaReader;
 
+enum {
+    STATE_QUIT  = 0,
+    STATE_INIT  = 1,
+    STATE_START = 2
+};
+
 typedef struct {
     int                     init;
     int                     fd;
@@ -227,7 +250,13 @@ typedef struct {
     GpsStatus               status;
     pthread_t               thread;
     pthread_t               pos_thread;
+#if ENABLE_NMEA
+    pthread_t               tmr_thread;
+    sem_t                   fix_sem;
+#endif
+    int                     fix_freq;
     int                     control[2];
+    NmeaReader              reader;
 } GpsState;
 
 static GpsState  _gps_state[1];
@@ -659,23 +688,6 @@ nmea_reader_parse( NmeaReader*  r )
         update_gps_nmea(tv.tv_sec*1000+tv.tv_usec/1000, r->in, r->pos);
         report_nmea = 0;
     }
-#if DUMP_DATA
-    D("r->fix.flags = 0x%x", r->fix.flags);
-#endif
-    if (r->fix.flags & GPS_LOCATION_HAS_LAT_LONG) {
-        if (r->fix_flags_cached > 0)
-            r->fix.flags |= r->fix_flags_cached;
-        r->fix_flags_cached = r->fix.flags;
-        update_gps_location( &r->fix );
-#if DUMP_DATA
-        D("r->fix.flags = 0x%x", r->fix.flags);
-#endif
-        r->fix.flags = 0;
-    }
-    if (r->sv_status_changed) {
-        update_gps_svstatus( &r->sv_status );
-        r->sv_status_changed = 0;
-    }
 }
 
 static void
@@ -696,7 +708,11 @@ nmea_reader_addc( NmeaReader*  r, int  c )
     r->pos       += 1;
 
     if (c == '\n') {
+#if ENABLE_NMEA
+        GPS_STATE_LOCK_FIX(_gps_state);
         nmea_reader_parse( r );
+        GPS_STATE_UNLOCK_FIX(_gps_state);
+#endif
         r->pos = 0;
     }
 }
@@ -737,7 +753,11 @@ static void gps_state_done( GpsState*  s ) {
 
     // close connection to the GPS daemon
     close( s->fd ); s->fd = -1;
-    s->init = 0;
+
+    s->init = STATE_QUIT;
+#if ENABLE_NMEA
+    sem_destroy(&s->fix_sem);
+#endif
 }
 
 static void gps_state_start( GpsState*  s ) {
@@ -835,15 +855,14 @@ void update_gps_nmea(GpsUtcTime timestamp, const char* nmea, int length) {
  * when started, messages from the NMEA SMD. these are simple NMEA sentences
  * that must be parsed to be converted into GPS fixes sent to the framework
  */
-int32_t _fix_frequency;//Which is a period not a frequency, but nvm.
-
 static void* gps_state_thread( void*  arg ) {
     GpsState*   state = (GpsState*) arg;
-    NmeaReader  reader[1];
+    NmeaReader  *reader;
     int         epoll_fd   = epoll_create(2);
     int         gps_fd     = state->fd;
     int         control_fd = state->control[1];
 
+    reader = &state->reader;
     nmea_reader_init( reader );
 
     // register control file descriptors for polling
@@ -859,7 +878,7 @@ static void* gps_state_thread( void*  arg ) {
         struct epoll_event   events[2];
         int                  ne, nevents;
 
-        nevents = epoll_wait( epoll_fd, events, gps_fd>-1 ? 2 : 1, -1);
+        nevents = epoll_wait( epoll_fd, events, gps_fd>-1 ? 2 : 1, -1 );
         if (nevents < 0) {
             if (errno != EINTR)
                 LOGE("epoll_wait() unexpected error: %s", strerror(errno));
@@ -893,12 +912,26 @@ static void* gps_state_thread( void*  arg ) {
                             D("gps thread starting  location_cb=%p", state->callbacks.location_cb);
                             started = 1;
                             pthread_cond_signal(&get_position_cond);
+#if ENABLE_NMEA
+                            state->init = STATE_START;
+                            if ( pthread_create( &state->tmr_thread, NULL, gps_timer_thread, state ) != 0 ) {
+                                LOGE("could not create gps_timer_thread: %s", strerror(errno));
+                                started = 0;
+                                state->init = STATE_INIT;
+                                goto Exit;
+                            }
+#endif
                        }
                     } else if (cmd == CMD_STOP) {
                         if (started) {
                             D("gps thread stopping");
                             started = 0;
                             pthread_cond_signal(&get_pos_ready_cond);
+#if ENABLE_NMEA
+                            void*  dummy;
+                            state->init = STATE_INIT;
+                            pthread_join(state->tmr_thread, &dummy);
+#endif
                             exit_gps_rpc();
                         }
                     }
@@ -933,7 +966,62 @@ Exit:
     return NULL;
 }
 
+uint64_t get_usleep_time(int fix_freq) {
+    uint64_t microseconds;
+    microseconds = (fix_freq * 1000000) - 500000;
+    return microseconds;
+}
+
+#if ENABLE_NMEA
+static void* gps_timer_thread( void*  arg ) {
+    D("%s() running", __FUNCTION__);
+    GpsState   *state = (GpsState*) arg;
+    NmeaReader *r = &(state->reader);
+    nmea_reader_init( r );
+
+    do {
+        GPS_STATE_LOCK_FIX(state);
+
+#if DUMP_DATA
+        D("r->fix.flags = 0x%x", r->fix.flags);
+#endif
+        if (r->fix.flags & GPS_LOCATION_HAS_LAT_LONG) {
+            if (r->fix_flags_cached > 0)
+                r->fix.flags |= r->fix_flags_cached;
+            r->fix_flags_cached = r->fix.flags;
+            update_gps_location( &r->fix );
+#if DUMP_DATA
+            D("r->fix.flags = 0x%x", r->fix.flags);
+#endif
+            r->fix.flags = 0;
+        }
+
+        if (r->sv_status_changed) {
+            update_gps_svstatus( &r->sv_status );
+            r->sv_status_changed = 0;
+        }
+
+        GPS_STATE_UNLOCK_FIX(state);
+
+        uint64_t microseconds = get_usleep_time(state->fix_freq);
+        usleep(microseconds);
+        //D("%s() usleep(%ld)", __FUNCTION__, microseconds);
+
+    } while(state->init == STATE_START);
+
+    D("%s() destroyed", __FUNCTION__);
+    return NULL;
+}
+#endif
+
 void pdsm_pd_callback() {
+    GpsState*  s = _gps_state;
+    if (!s->init)
+        return 0;
+
+    uint64_t microseconds = get_usleep_time(s->fix_freq);
+    usleep(microseconds);
+
     pthread_cond_signal(&get_pos_ready_cond);
 }
 
@@ -960,9 +1048,10 @@ static void gps_state_init( GpsState*  state ) {
 
     update_gps_status(GPS_STATUS_ENGINE_ON);
 
-    state->init       = 1;
+    state->init       = STATE_INIT;;
     state->control[0] = -1;
     state->control[1] = -1;
+    state->fix_freq   = -1;
 #if ENABLE_NMEA
     state->fd         = open("/dev/smd27", O_RDONLY);
 #else
@@ -970,6 +1059,13 @@ static void gps_state_init( GpsState*  state ) {
 #endif
 
     active = 1;
+
+#if ENABLE_NMEA
+    if ( sem_init(&state->fix_sem, 0, 1) != 0 ) {
+        LOGE("gps semaphore initialization failed: %s", strerror(errno));
+        goto Fail;
+    }
+#endif
 
     if ( socketpair( AF_LOCAL, SOCK_STREAM, 0, state->control ) < 0 ) {
         LOGE("could not create thread control socket pair: %s", strerror(errno));
@@ -1209,17 +1305,20 @@ static void gps_delete_aiding_data(GpsAidingData flags) {
 static int gps_set_position_mode(GpsPositionMode mode, int fix_frequency) {
     D("%s() is called", __FUNCTION__);
     D("fix_frequency=%d", fix_frequency);
-    _fix_frequency=fix_frequency;
-    if(_fix_frequency==0) {
+    GpsState*  s = _gps_state;
+    if (!s->init)
+        return 0;
+
+    if (fix_frequency == 0) {
         //We don't handle single shot requests atm...
         //So one every 1 seconds will it be.
-        _fix_frequency=1;
-    }
-    if(_fix_frequency>8) {
+        fix_frequency = 1;
+    } else if (fix_frequency > 8) {
         //Ok, A9 will timeout with so high value.
         //Set it to 8.
-        _fix_frequency=8;
+        fix_frequency = 8;
     }
+    s->fix_freq = fix_frequency;
     return 0;
 }
 
