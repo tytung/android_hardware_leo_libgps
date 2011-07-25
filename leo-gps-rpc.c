@@ -229,16 +229,15 @@ static bool_t xdr_xtra_auto_args(XDR *xdrs, struct xtra_auto_params *xtra_auto) 
 static int pdsm_client_init(struct CLIENT *clnt, int client) {
     struct params par;
     uint32_t res;
-    par.data=malloc(sizeof(int));
+    uint32_t par_data[1];
+    par.data = par_data;
     par.length=1;
     par.data[0]=client;
     if(clnt_call(clnt, 0x2, xdr_args, &par, xdr_result_int, &res, timeout)) {
         D("pdsm_client_init(%x) failed\n", client);
-        free(par.data);
         exit(-1);
     }
     D("pdsm_client_init(%x)=%x\n", client, res);
-    free(par.data);
     client_IDs[client]=res;
     return 0;
 }
@@ -246,42 +245,41 @@ static int pdsm_client_init(struct CLIENT *clnt, int client) {
 int pdsm_atl_l2_proxy_reg(struct CLIENT *clnt, int val0, int val1, int val2) {
     struct params par;
     uint32_t res;
-    par.data=malloc(sizeof(int)*3);
+    uint32_t par_data[3];
+    par.data = par_data;
     par.length=3;
     par.data[0]=val0;
     par.data[1]=val1;
     par.data[2]=val2;
     if(clnt_call(clnt, 0x3, xdr_args, &par, xdr_result_int, &res, timeout)) {
         D("pdsm_atl_l2_proxy_reg(%d, %d, %d) failed\n", par.data[0], par.data[1], par.data[2]);
-        free(par.data);
         exit(-1);
     }
     D("pdsm_atl_l2_proxy_reg(%d, %d, %d)=%d\n", par.data[0], par.data[1], par.data[2], res);
-    free(par.data);
     return res;
 }
 
 int pdsm_atl_dns_proxy_reg(struct CLIENT *clnt, int val0, int val1) {
     struct params par;
     uint32_t res;
-    par.data=malloc(sizeof(int)*2);
+    uint32_t par_data[2];
+    par.data = par_data;
     par.length=2;
     par.data[0]=val0;
     par.data[1]=val1;
     if(clnt_call(clnt, 0x6, xdr_args, &par, xdr_result_int, &res, timeout)) {
         D("pdsm_atl_dns_proxy_reg(%d, %d) failed\n", par.data[0], par.data[1]);
-        free(par.data);
         exit(-1);
     }
     D("pdsm_atl_dns_proxy(%d, %d)=%d\n", par.data[0], par.data[1], res);
-    free(par.data);
     return res;
 }
 
 int pdsm_client_pd_reg(struct CLIENT *clnt, int client, int val0, int val1, int val2, int val3, int val4) {
     struct params par;
     uint32_t res;
-    par.data=malloc(sizeof(int)*6);
+    uint32_t par_data[6];
+    par.data = par_data;
     par.length=6;
     par.data[0]=client_IDs[client];
     par.data[1]=val0;
@@ -291,18 +289,17 @@ int pdsm_client_pd_reg(struct CLIENT *clnt, int client, int val0, int val1, int 
     par.data[5]=val4;
     if(clnt_call(clnt, 0x4, xdr_args, &par, xdr_result_int, &res, timeout)) {
         D("pdsm_client_pd_reg(%x, %d, %d, %d, %x, %d) failed\n", par.data[0], par.data[1], par.data[2], par.data[3], par.data[4], par.data[5]);
-        free(par.data);
         exit(-1);
     }
     D("pdsm_client_pd_reg(%x, %d, %d, %d, %x, %d)=%d\n", par.data[0], par.data[1], par.data[2], par.data[3], par.data[4], par.data[5], res);
-    free(par.data);
     return res;
 }
 
 int pdsm_client_pa_reg(struct CLIENT *clnt, int client, int val0, int val1, int val2, int val3, int val4) {
     struct params par;
     uint32_t res;
-    par.data=malloc(sizeof(int)*6);
+    uint32_t par_data[6];
+    par.data = par_data;
     par.length=6;
     par.data[0]=client_IDs[client];
     par.data[1]=val0;
@@ -312,18 +309,17 @@ int pdsm_client_pa_reg(struct CLIENT *clnt, int client, int val0, int val1, int 
     par.data[5]=val4;
     if(clnt_call(clnt, 0x5, xdr_args, &par, xdr_result_int, &res, timeout)) {
         D("pdsm_client_pa_reg(%x, %d, %d, %d, %x, %d) failed\n", par.data[0], par.data[1], par.data[2], par.data[3], par.data[4], par.data[5]);
-        free(par.data);
         exit(-1);
     }
     D("pdsm_client_pa_reg(%x, %d, %d, %d, %x, %d)=%d\n", par.data[0], par.data[1], par.data[2], par.data[3], par.data[4], par.data[5], res);
-    free(par.data);
     return res;
 }
 
 int pdsm_client_lcs_reg(struct CLIENT *clnt, int client, int val0, int val1, int val2, int val3, int val4) {
     struct params par;
     uint32_t res;
-    par.data=malloc(sizeof(int)*6);
+    uint32_t par_data[6];
+    par.data = par_data;
     par.length=6;
     par.data[0]=client_IDs[client];
     par.data[1]=val0;
@@ -333,18 +329,17 @@ int pdsm_client_lcs_reg(struct CLIENT *clnt, int client, int val0, int val1, int
     par.data[5]=val4;
     if(clnt_call(clnt, 0x6, xdr_args, &par, xdr_result_int, &res, timeout)) {
         D("pdsm_client_lcs_reg(%x, %d, %d, %d, %x, %d) failed\n", par.data[0], par.data[1], par.data[2], par.data[3], par.data[4], par.data[5]);
-        free(par.data);
         exit(-1);
     }
     D("pdsm_client_lcs_reg(%x, %d, %d, %d, %x, %d)=%d\n", par.data[0], par.data[1], par.data[2], par.data[3], par.data[4], par.data[5], res);
-    free(par.data);
     return res;
 }
 
 int pdsm_client_ext_status_reg(struct CLIENT *clnt, int client, int val0, int val1, int val2, int val3, int val4) {
     struct params par;
     uint32_t res;
-    par.data=malloc(sizeof(int)*6);
+    uint32_t par_data[6];
+    par.data = par_data;
     par.length=6;
     par.data[0]=client_IDs[client];
     par.data[1]=val0;
@@ -354,18 +349,17 @@ int pdsm_client_ext_status_reg(struct CLIENT *clnt, int client, int val0, int va
     par.data[5]=val4;
     if(clnt_call(clnt, 0x8, xdr_args, &par, xdr_result_int, &res, timeout)) {
         D("pdsm_client_ext_status_reg(%x, %d, %d, %d, %d, %d) failed\n", par.data[0], par.data[1], par.data[2], par.data[3], par.data[4], par.data[5]);
-        free(par.data);
         exit(-1);
     }
     D("pdsm_client_ext_status_reg(%x, %d, %d, %d, %d, %d)=%d\n", par.data[0], par.data[1], par.data[2], par.data[3], par.data[4], par.data[5], res);
-    free(par.data);
     return res;
 }
 
 int pdsm_client_xtra_reg(struct CLIENT *clnt, int client, int val0, int val1, int val2, int val3, int val4) {
     struct params par;
     uint32_t res;
-    par.data=malloc(sizeof(int)*6);
+    uint32_t par_data[6];
+    par.data = par_data;
     par.length=6;
     par.data[0]=client_IDs[client];
     par.data[1]=val0;
@@ -375,34 +369,32 @@ int pdsm_client_xtra_reg(struct CLIENT *clnt, int client, int val0, int val1, in
     par.data[5]=val4;
     if(clnt_call(clnt, 0x7, xdr_args, &par, xdr_result_int, &res, timeout)) {
         D("pdsm_client_xtra_reg(%x, %d, %d, %d, %d, %d) failed\n", par.data[0], par.data[1], par.data[2], par.data[3], par.data[4], par.data[5]);
-        free(par.data);
         exit(-1);
     }
     D("pdsm_client_xtra_reg(%x, %d, %d, %d, %d, %d)=%d\n", par.data[0], par.data[1], par.data[2], par.data[3], par.data[4], par.data[5], res);
-    free(par.data);
     return res;
 }
 
 int pdsm_client_act(struct CLIENT *clnt, int client) {
     struct params par;
     uint32_t res;
-    par.data=malloc(sizeof(int));
+    uint32_t par_data[1];
+    par.data = par_data;
     par.length=1;
     par.data[0]=client_IDs[client];
     if(clnt_call(clnt, 0x9, xdr_args, &par, xdr_result_int, &res, timeout)) {
         D("pdsm_client_act(%x) failed\n", par.data[0]);
-        free(par.data);
         exit(-1);
     }
     D("pdsm_client_act(%x)=%d\n", par.data[0], res);
-    free(par.data);
     return res;
 }
 
 int pdsm_xtra_set_data(struct CLIENT *clnt, int val0, int client_ID, int val2, unsigned char *xtra_data_ptr, uint32_t part_len, uint8_t part, uint8_t total_parts, int val3) {
     struct xtra_data_params xtra_data;
     uint32_t res = -1;
-    xtra_data.data=malloc(sizeof(int)*4);
+    uint32_t par_data[4];
+    xtra_data.data = par_data;
     xtra_data.data[0]=val0;
     xtra_data.data[1]=client_ID;
     xtra_data.data[2]=val2;
@@ -420,18 +412,17 @@ int pdsm_xtra_set_data(struct CLIENT *clnt, int val0, int client_ID, int val2, u
     //D("%s() is called: clnt_stat=%d", __FUNCTION__, cs);
     if (cs != RPC_SUCCESS){
         D("pdsm_xtra_set_data(%x, %x, %d, 0x%x, %d, %d, %d, %d) failed\n", val0, client_ID, val2, (int) xtra_data_ptr, part_len, part, total_parts, val3);
-        free(xtra_data.data);
         exit(-1);
     }
     D("pdsm_xtra_set_data(%x, %x, %d, 0x%x, %d, %d, %d, %d)=%d\n", val0, client_ID, val2, (int) xtra_data_ptr, part_len, part, total_parts, val3, res);
-    free(xtra_data.data);
     return res;
 }
 
 int pdsm_xtra_inject_time_info(struct CLIENT *clnt, int val0, int client_ID, int val2, pdsm_xtra_time_info_type *time_info_ptr) {
     struct xtra_time_params xtra_time;
     uint32_t res = -1;
-    xtra_time.data=malloc(sizeof(int)*3);
+    uint32_t par_data[3];
+    xtra_time.data = par_data;
     xtra_time.data[0]=val0;
     xtra_time.data[1]=client_ID;
     xtra_time.data[2]=val2;
@@ -445,11 +436,9 @@ int pdsm_xtra_inject_time_info(struct CLIENT *clnt, int val0, int client_ID, int
     //D("%s() is called: clnt_stat=%d", __FUNCTION__, cs);
     if (cs != RPC_SUCCESS){
         D("pdsm_xtra_inject_time_info(%x, %x, %d, %lld, %d) failed\n", val0, client_ID, val2, time_info_ptr->time_utc, time_info_ptr->uncertainty);
-        free(xtra_time.data);
         exit(-1);
     }
     D("pdsm_xtra_inject_time_info(%x, %x, %d, %lld, %d)=%d\n", val0, client_ID, val2, time_info_ptr->time_utc, time_info_ptr->uncertainty, res);
-    free(xtra_time.data);
     return res;
 }
 
@@ -457,7 +446,8 @@ int pdsm_xtra_query_data_validity(struct CLIENT *clnt, int val0, int client_ID, 
     //Not Tested Not Used
     struct xtra_validity_params xtra_validity;
     uint32_t res = -1;
-    xtra_validity.data=malloc(sizeof(int)*3);
+    uint32_t par_data[3];
+    xtra_validity.data = par_data;
     xtra_validity.data[0]=val0;
     xtra_validity.data[1]=client_ID;
     xtra_validity.data[2]=val2;
@@ -470,18 +460,17 @@ int pdsm_xtra_query_data_validity(struct CLIENT *clnt, int val0, int client_ID, 
     //D("%s() is called: clnt_stat=%d", __FUNCTION__, cs);
     if (cs != RPC_SUCCESS){
         D("pdsm_xtra_query_data_validity(%x, %x, %d) failed\n", val0, client_ID, val2);
-        free(xtra_validity.data);
         exit(-1);
     }
     D("pdsm_xtra_query_data_validity(%x, %x, %d)=%d\n", val0, client_ID, val2, res);
-    free(xtra_validity.data);
     return res;
 }
 
 int pdsm_xtra_set_auto_download_params(struct CLIENT *clnt, int val0, int client_ID, int val2, uint8_t boolean, uint16_t interval) {
     struct xtra_auto_params xtra_auto;
     uint32_t res = -1;
-    xtra_auto.data=malloc(sizeof(int)*3);
+    uint32_t par_data[3];
+    xtra_auto.data = par_data;
     xtra_auto.data[0]=val0;
     xtra_auto.data[1]=client_ID;
     xtra_auto.data[2]=val2;
@@ -496,11 +485,9 @@ int pdsm_xtra_set_auto_download_params(struct CLIENT *clnt, int val0, int client
     //D("%s() is called: clnt_stat=%d", __FUNCTION__, cs);
     if (cs != RPC_SUCCESS){
         D("pdsm_xtra_set_auto_download_params(%x, %x, %d, %d, %d) failed\n", val0, client_ID, val2, boolean, interval);
-        free(xtra_auto.data);
         exit(-1);
     }
     D("pdsm_xtra_set_auto_download_params(%x, %x, %d, %d, %d)=%d\n", val0, client_ID, val2, boolean, interval, res);
-    free(xtra_auto.data);
     return res;
 }
 
@@ -508,7 +495,8 @@ int pdsm_xtra_client_initiate_download_request(struct CLIENT *clnt, int val0, in
     //Works but not currently being used
     struct xtra_validity_params xtra_request;
     uint32_t res = -1;
-    xtra_request.data=malloc(sizeof(int)*3);
+    uint32_t par_data[3];
+    xtra_request.data = par_data;
     xtra_request.data[0]=val0;
     xtra_request.data[1]=client_ID;
     xtra_request.data[2]=val2;
@@ -521,11 +509,9 @@ int pdsm_xtra_client_initiate_download_request(struct CLIENT *clnt, int val0, in
     //D("%s() is called: clnt_stat=%d", __FUNCTION__, cs);
     if (cs != RPC_SUCCESS){
         D("pdsm_xtra_client_initiate_download_request(%x, %x, %d) failed\n", val0, client_ID, val2);
-        free(xtra_request.data);
         exit(-1);
     }
     D("pdsm_xtra_client_initiate_download_request(%x, %x, %d)=%d\n", val0, client_ID, val2, res);
-    free(xtra_request.data);
     return res;
 }
 
@@ -534,7 +520,8 @@ val17, int val18, int val19, int val20, int val21, int val22, int val23, int val
 {
     struct params par;
     uint32_t res;
-    par.data=malloc(sizeof(int)*29);
+    uint32_t par_data[29];
+    par.data = par_data;
     par.length=29;
     par.data[0]=val0;
     par.data[1]=val1;
@@ -572,12 +559,28 @@ val17, int val18, int val19, int val20, int val21, int val22, int val23, int val
              (caddr_t)&res, timeout)) 
     {
         D("pdsm_client_get_position() failed\n");
-        free(par.data);
         exit(-1);
     }
     D("pdsm_client_get_position()=%d\n", res);
-    free(par.data);
     return res;
+}
+
+int pdsm_client_end_session(struct CLIENT *clnt, int val0, int val1, int val2, int client) {
+    struct params par;
+    uint32_t res;
+    uint32_t par_data[4];
+    par.data = par_data;
+    par.length=4;
+    par.data[0]=val0;
+    par.data[1]=val1;
+    par.data[2]=val2;
+    par.data[3]=client_IDs[client];
+    if(clnt_call(clnt, 0xc, xdr_args, &par, xdr_result_int, &res, timeout)) {
+        D("pdsm_client_end_session(%d, %d, %d, %x) failed\n", par.data[0], par.data[1], par.data[2], par.data[3]);
+        exit(-1);
+    }
+    D("pdsm_client_end_session(%d, %d, %d, %x)=%x\n", par.data[0], par.data[1], par.data[2], par.data[3], res);
+    return 0;
 }
 
 enum pdsm_pd_events {
@@ -800,25 +803,6 @@ void dispatch(struct svc_req* a, registered_server* svc) {
     }
     //ACK
     svc_sendreply(svc, xdr_int, &result);
-}
-
-int pdsm_client_end_session(struct CLIENT *clnt, int val0, int val1, int val2, int client) {
-    struct params par;
-    uint32_t res;
-    par.data=malloc(sizeof(int)*4);
-    par.length=4;
-    par.data[0]=val0;
-    par.data[1]=val1;
-    par.data[2]=val2;
-    par.data[3]=client_IDs[client];
-    if(clnt_call(clnt, 0xc, xdr_args, &par, xdr_result_int, &res, timeout)) {
-        D("pdsm_client_end_session(%d, %d, %d, %x) failed\n", par.data[0], par.data[1], par.data[2], par.data[3]);
-        free(par.data);
-        exit(-1);
-    }
-    D("pdsm_client_end_session(%d, %d, %d, %x)=%x\n", par.data[0], par.data[1], par.data[2], par.data[3], res);
-    free(par.data);
-    return 0;
 }
 
 static int CHECKED = 0;
