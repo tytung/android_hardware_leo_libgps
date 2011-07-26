@@ -82,7 +82,7 @@ void update_gps_status(GpsStatusValue value);
 void update_gps_svstatus(GpsSvStatus *svstatus);
 void update_gps_nmea(GpsUtcTime timestamp, const char* nmea, int length);
 
-extern int get_cleanup_value();
+extern uint8_t get_cleanup_value();
 
 /*****************************************************************/
 /*****************************************************************/

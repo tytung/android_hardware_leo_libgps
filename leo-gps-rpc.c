@@ -837,12 +837,12 @@ void dispatch(struct svc_req* a, registered_server* svc) {
     svc_sendreply(svc, xdr_int, &result);
 }
 
-static int CHECKED[2] = {0};
-static int XTRA_AUTO_DOWNLOAD_ENABLED = 0;
-static int XTRA_DOWNLOAD_INTERVAL = 24;
-static int CLEANUP_ENABLED = 1;
+static uint8_t CHECKED[3] = {0};
+static uint8_t XTRA_AUTO_DOWNLOAD_ENABLED = 0;
+static uint8_t XTRA_DOWNLOAD_INTERVAL = 24;
+static uint8_t CLEANUP_ENABLED = 1;
 
-int get_cleanup_value() {
+uint8_t get_cleanup_value() {
     D("%s() is called: %d", __FUNCTION__, CLEANUP_ENABLED);
     return CLEANUP_ENABLED;
 }
@@ -863,14 +863,14 @@ int parse_gps_conf() {
 
     while (fscanf(file, "%s", str) != EOF) {
         //printf("%s (%d)\n", str, strlen(str));
-        if (!CHECKED[0]) {
+        if (!CHECKED[1]) {
             result = strstr(str, check_auto_download);
             if (result != NULL) {
                 result = result+strlen(check_auto_download)+1;
                 i = atoi(result);
                 if (i==0 || i==1)
                     XTRA_AUTO_DOWNLOAD_ENABLED = i;
-                CHECKED[0] = 1;
+                CHECKED[1] = 1;
             }
         }
         if (XTRA_AUTO_DOWNLOAD_ENABLED) {
@@ -882,14 +882,14 @@ int parse_gps_conf() {
                     XTRA_DOWNLOAD_INTERVAL = i;
             }
         }
-        if (!CHECKED[1]) {
+        if (!CHECKED[2]) {
             result = strstr(str, check_cleanup);
             if (result != NULL) {
                 result = result+strlen(check_cleanup)+1;
                 i = atoi(result);
                 if (i==0 || i==1)
                     CLEANUP_ENABLED = i;
-                CHECKED[1] = 1;
+                CHECKED[2] = 1;
             }
         }
     }
@@ -938,9 +938,12 @@ int init_leo()
     pdsm_client_lcs_reg(clnt, 4, 0, 7, 0, 0x3F0, 0);
     pdsm_client_act(clnt, 4);
     
-    parse_gps_conf();
-    if (XTRA_AUTO_DOWNLOAD_ENABLED)
-        gps_xtra_set_auto_params();
+    if (!CHECKED[0]) {
+        parse_gps_conf();
+        if (XTRA_AUTO_DOWNLOAD_ENABLED)
+            gps_xtra_set_auto_params();
+        CHECKED[0] = 1;
+    }
 
     return 0;
 }
