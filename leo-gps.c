@@ -977,7 +977,11 @@ static void* gps_timer_thread( void*  arg ) {
     D("%s() running", __FUNCTION__);
     GpsState   *state = (GpsState*) arg;
     NmeaReader *r = &(state->reader);
-    nmea_reader_init( r );
+    r->fix.flags = 0;
+    r->fix_flags_cached = 0;
+    r->sv_status_changed = 0;
+    r->sv_status.num_svs = 0;
+    memset( r->sv_status.sv_list, 0, sizeof(r->sv_status.sv_list) );
 
     do {
         GPS_STATE_LOCK_FIX(state);
