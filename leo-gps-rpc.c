@@ -837,9 +837,15 @@ void dispatch(struct svc_req* a, registered_server* svc) {
     svc_sendreply(svc, xdr_int, &result);
 }
 
-static int CHECKED = 0;
+static int CHECKED[2] = {0};
 static int XTRA_AUTO_DOWNLOAD_ENABLED = 0;
 static int XTRA_DOWNLOAD_INTERVAL = 24;
+static int CLEANUP_ENABLED = 1;
+
+int get_cleanup_value() {
+    D("%s() is called: %d", __FUNCTION__, CLEANUP_ENABLED);
+    return CLEANUP_ENABLED;
+}
 
 int parse_gps_conf() {
     FILE *file = fopen("/system/etc/gps.conf", "r");
@@ -848,22 +854,23 @@ int parse_gps_conf() {
         return 1; 
     }
     
-    char *check_enabled  = "GPS1_XTRA_AUTO_DOWNLOAD_ENABLED";
+    char *check_auto_download = "GPS1_XTRA_AUTO_DOWNLOAD_ENABLED";
     char *check_interval = "GPS1_XTRA_DOWNLOAD_INTERVAL";
+    char *check_cleanup = "GPS1_CLEANUP_ENABLED";
     char *result;
     char str[256];
     int i = -1;
 
     while (fscanf(file, "%s", str) != EOF) {
         //printf("%s (%d)\n", str, strlen(str));
-        if (!CHECKED) {
-            result = strstr(str, check_enabled);
+        if (!CHECKED[0]) {
+            result = strstr(str, check_auto_download);
             if (result != NULL) {
-                result = result+strlen(check_enabled)+1;
+                result = result+strlen(check_auto_download)+1;
                 i = atoi(result);
                 if (i==0 || i==1)
                     XTRA_AUTO_DOWNLOAD_ENABLED = i;
-                CHECKED = 1;
+                CHECKED[0] = 1;
             }
         }
         if (XTRA_AUTO_DOWNLOAD_ENABLED) {
@@ -873,6 +880,16 @@ int parse_gps_conf() {
                 i = atoi(result);
                 if (i>0 && i<169)
                     XTRA_DOWNLOAD_INTERVAL = i;
+            }
+        }
+        if (!CHECKED[1]) {
+            result = strstr(str, check_cleanup);
+            if (result != NULL) {
+                result = result+strlen(check_cleanup)+1;
+                i = atoi(result);
+                if (i==0 || i==1)
+                    CLEANUP_ENABLED = i;
+                CHECKED[1] = 1;
             }
         }
     }

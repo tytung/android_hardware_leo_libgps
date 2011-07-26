@@ -38,7 +38,6 @@
 #define  LOG_TAG  "gps_leo"
 
 #define  XTRA_BLOCK_SIZE  400
-#define  DISABLE_CLEANUP   0 // fully shutting down the GPS is temporarily disabled
 #define  ENABLE_NMEA 1
 
 #define  MEASUREMENT_PRECISION  10.0f // in meters
@@ -82,6 +81,8 @@ void update_gps_location(GpsLocation *location);
 void update_gps_status(GpsStatusValue value);
 void update_gps_svstatus(GpsSvStatus *svstatus);
 void update_gps_nmea(GpsUtcTime timestamp, const char* nmea, int length);
+
+extern int get_cleanup_value();
 
 /*****************************************************************/
 /*****************************************************************/
@@ -1244,16 +1245,14 @@ static int gps_init(GpsCallbacks* callbacks) {
 
 static void gps_cleanup() {
     D("%s() is called", __FUNCTION__);
-#if DISABLE_CLEANUP
-    return;
-#else
-    GpsState*  s = _gps_state;
+    if (get_cleanup_value()) {
+        GpsState*  s = _gps_state;
 
-    if (s->init) {
-        gps_state_done(s);
-        cleanup_gps_rpc_clients();
+        if (s->init) {
+            gps_state_done(s);
+            cleanup_gps_rpc_clients();
+        }
     }
-#endif
 }
 
 static int gps_start() {
