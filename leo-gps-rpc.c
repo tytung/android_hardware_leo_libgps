@@ -94,6 +94,7 @@ static uint32_t use_nmea=0;
 #endif
 static struct CLIENT *_clnt;
 static struct timeval timeout;
+static SVCXPRT *_svc;
 
 struct params {
     uint32_t *data;
@@ -242,6 +243,22 @@ static int pdsm_client_init(struct CLIENT *clnt, int client) {
     return 0;
 }
 
+static int pdsm_client_release(struct CLIENT *clnt, int client) {
+    struct params par;
+    uint32_t res;
+    uint32_t par_data;
+    par.data = &par_data;
+    par.length=1;
+    par.data[0]=client_IDs[client];
+    if(clnt_call(clnt, 0x3, xdr_args, &par, xdr_result_int, &res, timeout)) {
+        D("pdsm_client_release(%x) failed\n", client_IDs[client]);
+        exit(-1);
+    }
+    D("pdsm_client_release(%x)=%x\n", client_IDs[client], res);
+    client_IDs[client]=res;
+    return 0;
+}
+
 int pdsm_atl_l2_proxy_reg(struct CLIENT *clnt, int val0, int val1, int val2) {
     struct params par;
     uint32_t res;
@@ -372,6 +389,21 @@ int pdsm_client_xtra_reg(struct CLIENT *clnt, int client, int val0, int val1, in
         exit(-1);
     }
     D("pdsm_client_xtra_reg(%x, %d, %d, %d, %d, %d)=%d\n", par.data[0], par.data[1], par.data[2], par.data[3], par.data[4], par.data[5], res);
+    return res;
+}
+
+int pdsm_client_deact(struct CLIENT *clnt, int client) {
+    struct params par;
+    uint32_t res;
+    uint32_t par_data;
+    par.data = &par_data;
+    par.length=1;
+    par.data[0]=client_IDs[client];
+    if(clnt_call(clnt, 0xA, xdr_args, &par, xdr_result_int, &res, timeout)) {
+        D("pdsm_client_deact(%x) failed\n", par.data[0]);
+        exit(-1);
+    }
+    D("pdsm_client_deact(%x)=%d\n", par.data[0], res);
     return res;
 }
 
@@ -692,10 +724,10 @@ void dispatch_pdsm_pd(uint32_t *data) {
         fix.flags |= GPS_LOCATION_HAS_ALTITUDE;
         fix.altitude = 0;
         double altitude = (double)ntohl(data[64]);
-        if (altitude / 10.0f < 1000000) // Check if height is not unreasonably high
+        if (altitude / 10.0f < 1000000.0) // Check if height is not unreasonably high
             fix.altitude = altitude / 10.0f; // Apply height with a division of 10 to correct unit of meters
         else // If unreasonably high then it is a negative height
-            fix.altitude = (altitude - (double)4294967295) / 10.0f; // Subtract FFFFFFFF to make height negative
+            fix.altitude = (altitude - (double)4294967295.0) / 10.0f; // Subtract FFFFFFFF to make height negative
     }
     if (fix.flags)
     {
@@ -855,6 +887,7 @@ int init_leo()
     int i;
     _clnt=clnt;
     SVCXPRT *svc=svcrtr_create();
+    _svc=svc;
     xprt_register(svc);
     svc_register(svc, 0x3100005b, 0x00010001, (__dispatch_fn_t)dispatch, 0);
     svc_register(svc, 0x3100005b, 0, (__dispatch_fn_t)dispatch, 0);
@@ -945,7 +978,7 @@ void gps_get_position(int timeout)
 {
     D("%s() is called", __FUNCTION__);
     pdsm_get_position(_clnt, 
-            2, 0,           
+            0, 0,           
             1,              
             1, 1,           
             0x3B9AC9FF, 1,  
@@ -962,6 +995,26 @@ void gps_get_position(int timeout)
 void exit_gps_rpc() 
 {
     pdsm_client_end_session(_clnt, 0, 0, 0, 2);
+}
+
+void cleanup_gps_rpc_clients() 
+{
+    pdsm_client_deact(_clnt, 2);
+    pdsm_client_deact(_clnt, 0xb);
+    pdsm_client_deact(_clnt, 4);
+    
+    pdsm_client_release(_clnt, 2);
+    pdsm_client_release(_clnt, 0xb);
+    pdsm_client_release(_clnt, 4);
+    
+    svc_unregister(_svc, 0x3100005b, 0x00010001);
+    svc_unregister(_svc, 0x3100005b, 0);
+    svc_unregister(_svc, 0x3100001d, 0x00010001);
+    svc_unregister(_svc, 0x3100001d, 0);
+    xprt_unregister(_svc);
+    svc_destroy(_svc);
+    
+    clnt_destroy(_clnt);
 }
 
 // END OF FILE

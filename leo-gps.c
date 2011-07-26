@@ -38,7 +38,7 @@
 #define  LOG_TAG  "gps_leo"
 
 #define  XTRA_BLOCK_SIZE  400
-#define  DISABLE_CLEANUP   1 // fully shutting down the GPS is temporarily disabled
+#define  DISABLE_CLEANUP   0 // fully shutting down the GPS is temporarily disabled
 #define  ENABLE_NMEA 1
 
 #define  MEASUREMENT_PRECISION  10.0f // in meters
@@ -1249,8 +1249,10 @@ static void gps_cleanup() {
 #else
     GpsState*  s = _gps_state;
 
-    if (s->init)
+    if (s->init) {
         gps_state_done(s);
+        cleanup_gps_rpc_clients();
+    }
 #endif
 }
 
