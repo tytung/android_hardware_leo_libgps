@@ -941,7 +941,7 @@ int gps_xtra_inject_time_info(GpsUtcTime time, int64_t timeReference, int uncert
     return res;
 }
 
-void gps_get_position() 
+void gps_get_position(int timeout) 
 {
     D("%s() is called", __FUNCTION__);
     pdsm_get_position(_clnt, 
@@ -955,7 +955,7 @@ void gps_get_position()
         0,                  
        0, 0, 0, 0, 0, 0, 0, 
        0, 0, 0, 0, 0,       
-       1, 50, 2,
+       1, 50, timeout,
        client_IDs[2]);
 }
 

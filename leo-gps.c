@@ -1019,23 +1019,24 @@ static void* gps_timer_thread( void*  arg ) {
 #endif
 
 void pdsm_pd_callback() {
-    GpsState*  s = _gps_state;
-    if (!s->init)
-        return 0;
-
-    uint64_t microseconds = get_usleep_time(s->fix_freq);
-    usleep(microseconds);
-
+#if DUMP_DATA
+    struct tm  tm;
+    time_t  now = time(NULL);
+    gmtime_r( &now, &tm );
+    long time = mktime(&tm);
+    D("%s() is called: %ld", __FUNCTION__, time);
+#endif
     pthread_cond_signal(&get_pos_ready_cond);
 }
 
 static void* gps_get_position_thread( void*  arg ) {
     D("%s() running", __FUNCTION__);
+    GpsState*  s = _gps_state;
     while(active)
     {
         while(started)
         {
-            gps_get_position();
+            gps_get_position(s->fix_freq);
             pthread_mutex_lock(&get_pos_ready_mutex);
             pthread_cond_wait(&get_pos_ready_cond, &get_pos_ready_mutex);
             pthread_mutex_unlock(&get_pos_ready_mutex);
