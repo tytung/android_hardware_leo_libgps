@@ -967,12 +967,6 @@ Exit:
     return NULL;
 }
 
-uint64_t get_usleep_time(int fix_freq) {
-    uint64_t microseconds;
-    microseconds = (fix_freq * 1000000) - 500000;
-    return microseconds;
-}
-
 #if ENABLE_NMEA
 static void* gps_timer_thread( void*  arg ) {
     D("%s() running", __FUNCTION__);
@@ -1008,7 +1002,7 @@ static void* gps_timer_thread( void*  arg ) {
 
         GPS_STATE_UNLOCK_FIX(state);
 
-        uint64_t microseconds = get_usleep_time(state->fix_freq);
+        uint64_t microseconds = (state->fix_freq * 1000000) - 500000;
         usleep(microseconds);
         //D("%s() usleep(%ld)", __FUNCTION__, microseconds);
 
