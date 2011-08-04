@@ -1014,13 +1014,6 @@ static void* gps_timer_thread( void*  arg ) {
 #endif
 
 void pdsm_pd_callback() {
-#if DUMP_DATA
-    struct tm  tm;
-    time_t  now = time(NULL);
-    gmtime_r( &now, &tm );
-    long time = mktime(&tm);
-    D("%s() is called: %ld", __FUNCTION__, time);
-#endif
     pthread_cond_signal(&get_pos_ready_cond);
 }
 
@@ -1031,7 +1024,7 @@ static void* gps_get_position_thread( void*  arg ) {
     {
         while(started)
         {
-            gps_get_position(s->fix_freq);
+            gps_get_position();
             pthread_mutex_lock(&get_pos_ready_mutex);
             pthread_cond_wait(&get_pos_ready_cond, &get_pos_ready_mutex);
             pthread_mutex_unlock(&get_pos_ready_mutex);

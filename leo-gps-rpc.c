@@ -837,10 +837,11 @@ void dispatch(struct svc_req* a, registered_server* svc) {
     svc_sendreply(svc, xdr_int, &result);
 }
 
-static uint8_t CHECKED[3] = {0};
+static uint8_t CHECKED[4] = {0};
 static uint8_t XTRA_AUTO_DOWNLOAD_ENABLED = 0;
-static uint8_t XTRA_DOWNLOAD_INTERVAL = 24;
+static uint8_t XTRA_DOWNLOAD_INTERVAL = 24;  // hours
 static uint8_t CLEANUP_ENABLED = 1;
+static uint8_t SESSION_TIMEOUT = 2;  // seconds
 
 uint8_t get_cleanup_value() {
     D("%s() is called: %d", __FUNCTION__, CLEANUP_ENABLED);
@@ -857,12 +858,13 @@ int parse_gps_conf() {
     char *check_auto_download = "GPS1_XTRA_AUTO_DOWNLOAD_ENABLED";
     char *check_interval = "GPS1_XTRA_DOWNLOAD_INTERVAL";
     char *check_cleanup = "GPS1_CLEANUP_ENABLED";
+    char *check_timeout = "GPS1_SESSION_TIMEOUT";
     char *result;
     char str[256];
     int i = -1;
 
     while (fscanf(file, "%s", str) != EOF) {
-        //printf("%s (%d)\n", str, strlen(str));
+        //D("%s (%d)\n", str, strlen(str));
         if (!CHECKED[1]) {
             result = strstr(str, check_auto_download);
             if (result != NULL) {
@@ -890,6 +892,16 @@ int parse_gps_conf() {
                 if (i==0 || i==1)
                     CLEANUP_ENABLED = i;
                 CHECKED[2] = 1;
+            }
+        }
+        if (!CHECKED[3]) {
+            result = strstr(str, check_timeout);
+            if (result != NULL) {
+                result = result+strlen(check_timeout)+1;
+                i = atoi(result);
+                if (i>1 && i<121)
+                    SESSION_TIMEOUT = i;
+                CHECKED[3] = 1;
             }
         }
     }
@@ -994,9 +1006,15 @@ int gps_xtra_inject_time_info(GpsUtcTime time, int64_t timeReference, int uncert
     return res;
 }
 
-void gps_get_position(int timeout) 
+void gps_get_position() 
 {
-    D("%s() is called", __FUNCTION__);
+#if GPS_DEBUG
+    struct tm  tm;
+    time_t  now = time(NULL);
+    gmtime_r( &now, &tm );
+    long time = mktime(&tm);
+    D("%s() is called: %ld", __FUNCTION__, time);
+#endif
     pdsm_get_position(_clnt, 
             0, 0,           
             1,              
@@ -1008,7 +1026,7 @@ void gps_get_position(int timeout)
         0,                  
        0, 0, 0, 0, 0, 0, 0, 
        0, 0, 0, 0, 0,       
-       1, 50, timeout,
+       1, 50, SESSION_TIMEOUT,
        client_IDs[2]);
 }
 
