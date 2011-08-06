@@ -38,7 +38,7 @@
 
 #define  LOG_TAG  "gps_leo_rpc"
 
-#define  ENABLE_NMEA 1
+#define  ENABLE_NMEA 0
 
 #define  MEASUREMENT_PRECISION  10.0f // in meters
 #define  DUMP_DATA  0
@@ -86,7 +86,7 @@ struct SVCXPRT {
 } while(0);
 
 static uint32_t client_IDs[16];//highest known value is 0xb
-static uint32_t has_fix=0;
+static uint32_t no_fix=1;
 #if ENABLE_NMEA
 static uint32_t use_nmea=1;
 #else
@@ -646,7 +646,7 @@ void dispatch_pdsm_pd(uint32_t *data) {
     }
     if(event&PDSM_PD_EVENT_GPS_DONE) {
         D("PDSM_PD_EVENT_GPS_DONE");
-        has_fix = 0;
+        no_fix = 1;
     }
     GpsLocation fix;
     fix.flags = 0;
@@ -686,7 +686,7 @@ void dispatch_pdsm_pd(uint32_t *data) {
         fix.timestamp *= 1000; //ms
 
         fix.flags |= GPS_LOCATION_HAS_LAT_LONG;
-        has_fix = 1;
+        no_fix = 0;
 
         if (ntohl(data[75])) {
             fix.flags |= GPS_LOCATION_HAS_ACCURACY;
@@ -749,7 +749,10 @@ void dispatch_pdsm_ext(uint32_t *data) {
     int i;
 
     if (use_nmea) return;
-    if (has_fix) return;
+
+    no_fix++;
+    if (no_fix < 2) return;
+    if (no_fix == UINT32_MAX) no_fix = 2; // avoid overflow
     
     ret.num_svs=ntohl(data[8]);
     D("%s() is called. num_svs=%d", __FUNCTION__, ret.num_svs);
@@ -771,9 +774,7 @@ void dispatch_pdsm_ext(uint32_t *data) {
     }
     //ret.used_in_fix_mask=ntohl(data[9]);
     ret.used_in_fix_mask=0;
-    if (ret.num_svs) {
-        update_gps_svstatus(&ret);
-    }
+    update_gps_svstatus(&ret);
 }
 
 void dispatch_pdsm_xtra_req(uint8_t *data) {

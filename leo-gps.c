@@ -38,7 +38,7 @@
 #define  LOG_TAG  "gps_leo"
 
 #define  XTRA_BLOCK_SIZE  400
-#define  ENABLE_NMEA 1
+#define  ENABLE_NMEA 0
 
 #define  MEASUREMENT_PRECISION  10.0f // in meters
 #define  DUMP_DATA  0
