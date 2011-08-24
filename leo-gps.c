@@ -836,7 +836,9 @@ void update_gps_status(GpsStatusValue value) {
 }
 
 void update_gps_svstatus(GpsSvStatus *svstatus) {
+#if DUMP_DATA
     D("%s(): GpsSvStatus.num_svs=%d", __FUNCTION__, svstatus->num_svs);
+#endif
     GpsState*  state = _gps_state;
     //Should be made thread safe...
     if(state->callbacks.sv_status_cb)
