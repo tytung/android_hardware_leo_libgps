@@ -923,6 +923,11 @@ int parse_gps_conf() {
         }
     }
     fclose(file);
+    LOGD("%s() is called: GPS1_XTRA_AUTO_DOWNLOAD_ENABLED = %d", __FUNCTION__, XTRA_AUTO_DOWNLOAD_ENABLED);
+    LOGD("%s() is called: GPS1_XTRA_DOWNLOAD_INTERVAL = %d", __FUNCTION__, XTRA_DOWNLOAD_INTERVAL);
+    LOGD("%s() is called: GPS1_CLEANUP_ENABLED = %d", __FUNCTION__, CLEANUP_ENABLED);
+    LOGD("%s() is called: GPS1_SESSION_TIMEOUT = %d", __FUNCTION__, SESSION_TIMEOUT);
+    LOGD("%s() is called: GPS1_MEASUREMENT_PRECISION = %d", __FUNCTION__, MEASUREMENT_PRECISION);
     return 0;
 }
 
