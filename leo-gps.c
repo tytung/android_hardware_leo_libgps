@@ -40,7 +40,6 @@
 #define  XTRA_BLOCK_SIZE  400
 #define  ENABLE_NMEA 1
 
-#define  MEASUREMENT_PRECISION  10.0f // in meters
 #define  DUMP_DATA  0
 #define  GPS_DEBUG  1
 
@@ -83,6 +82,7 @@ void update_gps_svstatus(GpsSvStatus *svstatus);
 void update_gps_nmea(GpsUtcTime timestamp, const char* nmea, int length);
 
 extern uint8_t get_cleanup_value();
+extern uint8_t get_precision_value();
 
 /*****************************************************************/
 /*****************************************************************/
@@ -445,7 +445,8 @@ nmea_reader_update_accuracy( NmeaReader*  r,
         return -1;
 
     r->fix.flags   |= GPS_LOCATION_HAS_ACCURACY;
-    r->fix.accuracy = (float)str2float(tok.p, tok.end) * MEASUREMENT_PRECISION;
+    float precision = (float)get_precision_value();
+    r->fix.accuracy = (float)str2float(tok.p, tok.end) * precision;
     return 0;
 }
 
