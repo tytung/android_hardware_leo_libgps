@@ -38,7 +38,7 @@
 
 #define  LOG_TAG  "gps_leo_rpc"
 
-#define  ENABLE_NMEA 0
+#define  ENABLE_NMEA 1
 
 #define  DUMP_DATA  0
 #define  GPS_DEBUG  0
