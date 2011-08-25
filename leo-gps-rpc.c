@@ -758,7 +758,6 @@ void dispatch_pdsm_ext(uint32_t *data) {
 
     no_fix++;
     if (no_fix < 2) return;
-    if (no_fix == UINT32_MAX) no_fix = 2; // avoid overflow
     
     ret.num_svs=ntohl(data[8]);
     D("%s() is called. num_svs=%d", __FUNCTION__, ret.num_svs);
