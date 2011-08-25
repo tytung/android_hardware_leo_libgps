@@ -1128,8 +1128,16 @@ static int gps_xtra_inject_xtra_data(char* data, int length) {
         total_parts += 1;
     }
 
+    uint8_t part_no = total_parts % 10;
+    if (part_no > 0)
+        part_no = total_parts - part_no;
+    else
+        part_no = total_parts - 5;
+
     len_injected = 0; // O bytes injected
     // XTRA injection starts with part 1
+    D("gps_xtra_inject_xtra_data: inject part = %d/%d, len = %d\n", 1, total_parts, XTRA_BLOCK_SIZE);
+    D("gps_xtra_inject_xtra_data: ......");
     for (part = 1; part <= total_parts; part++)
     {
         part_len = XTRA_BLOCK_SIZE;
@@ -1139,7 +1147,8 @@ static int gps_xtra_inject_xtra_data(char* data, int length) {
         }
         xtra_data_ptr = data + len_injected;
 
-        D("gps_xtra_inject_xtra_data: inject part = %d/%d, len = %d\n", part, total_parts, part_len);
+        if (part > part_no) // reduce the number of the xtra debugging info
+            D("gps_xtra_inject_xtra_data: inject part = %d/%d, len = %d\n", part, total_parts, part_len);
 
         if (part < total_parts)
         {
