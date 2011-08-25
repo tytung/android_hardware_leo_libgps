@@ -973,6 +973,11 @@ int init_leo()
     pdsm_client_act(clnt, 4);
     
     if (!CHECKED[0]) {
+        if (use_nmea)
+            LOGD("%s() is called: %s version", __FUNCTION__, "NMEA");
+        else
+            LOGD("%s() is called: %s version", __FUNCTION__, "RPC");
+
         parse_gps_conf();
         if (XTRA_AUTO_DOWNLOAD_ENABLED)
             gps_xtra_set_auto_params();
