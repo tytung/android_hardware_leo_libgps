@@ -44,7 +44,7 @@
 #define  GPS_DEBUG  1
 
 #if GPS_DEBUG
-#  define  D(...)   LOGD(__VA_ARGS__)
+#  define  D(...)   LOGx(__VA_ARGS__)
 #else
 #  define  D(...)   ((void)0)
 #endif
@@ -885,13 +885,13 @@ static void* gps_state_thread( void*  arg ) {
         nevents = epoll_wait( epoll_fd, events, gps_fd>-1 ? 2 : 1, -1 );
         if (nevents < 0) {
             if (errno != EINTR)
-                LOGE("epoll_wait() unexpected error: %s", strerror(errno));
+                LOGx("epoll_wait() unexpected error: %s", strerror(errno));
             continue;
         }
         //D("gps thread received %d events", nevents);
         for (ne = 0; ne < nevents; ne++) {
             if ((events[ne].events & (EPOLLERR|EPOLLHUP)) != 0) {
-                LOGE("EPOLLERR or EPOLLHUP after epoll_wait() !?");
+                LOGx("EPOLLERR or EPOLLHUP after epoll_wait() !?");
                 goto Exit;
             }
             if ((events[ne].events & EPOLLIN) != 0) {
@@ -919,7 +919,7 @@ static void* gps_state_thread( void*  arg ) {
 #if ENABLE_NMEA
                             state->init = STATE_START;
                             if ( pthread_create( &state->tmr_thread, NULL, gps_timer_thread, state ) != 0 ) {
-                                LOGE("could not create gps_timer_thread: %s", strerror(errno));
+                                LOGx("could not create gps_timer_thread: %s", strerror(errno));
                                 started = 0;
                                 state->init = STATE_INIT;
                                 goto Exit;
@@ -961,7 +961,7 @@ static void* gps_state_thread( void*  arg ) {
                     D("gps fd event end");
 #endif
                 } else {
-                    LOGE("epoll_wait() returned unkown fd %d ?", fd);
+                    LOGx("epoll_wait() returned unkown fd %d ?", fd);
                 }
             }
         }
@@ -1058,23 +1058,23 @@ static void gps_state_init( GpsState*  state ) {
 
 #if ENABLE_NMEA
     if ( sem_init(&state->fix_sem, 0, 1) != 0 ) {
-        LOGE("gps semaphore initialization failed: %s", strerror(errno));
+        LOGx("gps semaphore initialization failed: %s", strerror(errno));
         goto Fail;
     }
 #endif
 
     if ( socketpair( AF_LOCAL, SOCK_STREAM, 0, state->control ) < 0 ) {
-        LOGE("could not create thread control socket pair: %s", strerror(errno));
+        LOGx("could not create thread control socket pair: %s", strerror(errno));
         goto Fail;
     }
 
     if ( pthread_create( &state->thread, NULL, gps_state_thread, state ) != 0 ) {
-        LOGE("could not create gps thread: %s", strerror(errno));
+        LOGx("could not create gps thread: %s", strerror(errno));
         goto Fail;
     }
 
     if ( pthread_create( &state->pos_thread, NULL, gps_get_position_thread, NULL ) != 0 ) {
-        LOGE("could not create gps_get_position_thread: %s", strerror(errno));
+        LOGx("could not create gps_get_position_thread: %s", strerror(errno));
         goto Fail;
     }
 
